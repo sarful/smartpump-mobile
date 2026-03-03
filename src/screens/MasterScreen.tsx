@@ -67,9 +67,6 @@ export function MasterScreen() {
           <Text style={styles.info}>Welcome, {auth.user?.username}</Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable style={styles.secondaryHeaderBtn} onPress={auth.logoutAll}>
-            <Text style={styles.secondaryHeaderText}>Logout All</Text>
-          </Pressable>
           <Pressable style={styles.logoutBtn} onPress={auth.logout}>
             <Text style={styles.logoutText}>Logout</Text>
           </Pressable>
@@ -297,8 +294,6 @@ const styles = StyleSheet.create({
   success: { color: "#15803d", fontSize: 13 },
   logoutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 8 },
   logoutText: { color: "#0f172a", fontWeight: "700" },
-  secondaryHeaderBtn: { borderWidth: 1, borderColor: "#94a3b8", borderRadius: 999, backgroundColor: "#fff", paddingHorizontal: 10, paddingVertical: 8 },
-  secondaryHeaderText: { color: "#334155", fontWeight: "600", fontSize: 12 },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   statCard: { width: "48%", borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10, backgroundColor: "#fff", padding: 10 },
   statTitle: { color: "#64748b", fontSize: 12 },

@@ -61,6 +61,7 @@ export function UserDashboardScreen() {
   const lowBalance = (data?.availableMinutes ?? 0) < 5;
   const hasPendingRequest = Boolean(data?.pendingMinuteRequest);
   const canControlMotor = !suspendedReason && !lowBalance && !data?.loadShedding;
+  const hasActiveQueue = Boolean(data?.queuePosition && data.queuePosition > 0);
 
   const queueAwareness = useMemo(() => {
     if (!data) return "-";
@@ -126,22 +127,20 @@ export function UserDashboardScreen() {
         <Card title="Motor Status" value={data?.motorStatus || "OFF"} />
         <Card title="Remaining Minutes" value={`${data?.remainingMinutes ?? 0}m`} />
         <Card title="Available Minutes" value={`${data?.availableMinutes ?? 0}m`} />
-        <Card title="Running User" value={data?.runningUser || "-"} />
-        {(data?.queuePosition !== null && data?.queuePosition !== undefined) ? (
+        {hasActiveQueue ? (
           <>
+            <Card title="Running User" value={data?.runningUser || "-"} />
             <Card title="Queue Position" value={data?.queuePosition === 0 ? "Running" : `#${data?.queuePosition}`} />
             <Card title="Est. Wait" value={data?.estimatedWait !== null ? `${data?.estimatedWait}m` : "-"} />
             <Card title="Queue Awareness" value={queueAwareness} />
           </>
         ) : null}
-        <Card
-          title="Request Minutes"
-          value={
-            hasPendingRequest
-              ? `Pending: ${data?.pendingMinuteRequest?.minutes}m`
-              : "No pending request"
-          }
-        />
+        {hasPendingRequest ? (
+          <Card
+            title="Request Minutes"
+            value={`Pending: ${data?.pendingMinuteRequest?.minutes}m`}
+          />
+        ) : null}
       </View>
 
       <View style={styles.panel}>

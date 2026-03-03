@@ -73,9 +73,6 @@ export function AdminScreen() {
           <Text style={styles.info}>Users: {data?.users.length ?? 0} | Pending: {data?.pendingRequests.length ?? 0}</Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable style={styles.secondaryHeaderBtn} onPress={auth.logoutAll}>
-            <Text style={styles.secondaryHeaderText}>Logout All</Text>
-          </Pressable>
           <Pressable style={styles.logoutBtn} onPress={auth.logout}>
             <Text style={styles.logoutText}>Logout</Text>
           </Pressable>
@@ -87,12 +84,24 @@ export function AdminScreen() {
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Recharge Minutes</Text>
-        <TextInput
-          style={styles.input}
-          value={rechargeUserId}
-          onChangeText={setRechargeUserId}
-          placeholder="User ID"
-        />
+        <Text style={styles.info}>Select User</Text>
+        <View style={styles.userList}>
+          {data?.users.length ? (
+            data.users.map((u) => (
+              <Pressable
+                key={u.id}
+                style={[styles.userChip, rechargeUserId === u.id && styles.userChipActive]}
+                onPress={() => setRechargeUserId(u.id)}
+              >
+                <Text style={[styles.userChipText, rechargeUserId === u.id && styles.userChipTextActive]}>
+                  {u.username}
+                </Text>
+              </Pressable>
+            ))
+          ) : (
+            <Text style={styles.info}>No users found</Text>
+          )}
+        </View>
         <TextInput
           style={styles.input}
           value={rechargeMinutes}
@@ -239,11 +248,14 @@ const styles = StyleSheet.create({
   success: { color: "#15803d", fontSize: 13 },
   logoutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 8 },
   logoutText: { color: "#0f172a", fontWeight: "700" },
-  secondaryHeaderBtn: { borderWidth: 1, borderColor: "#94a3b8", borderRadius: 999, backgroundColor: "#fff", paddingHorizontal: 10, paddingVertical: 8 },
-  secondaryHeaderText: { color: "#334155", fontWeight: "600", fontSize: 12 },
   panel: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, backgroundColor: "#fff", padding: 12, gap: 10 },
   panelTitle: { color: "#0f172a", fontWeight: "700", fontSize: 16 },
   input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: "#0f172a", backgroundColor: "#fff" },
+  userList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  userChip: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#fff" },
+  userChipActive: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
+  userChipText: { color: "#334155", fontWeight: "600", fontSize: 12 },
+  userChipTextActive: { color: "#1d4ed8" },
   item: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10, padding: 10, backgroundColor: "#f8fafc", gap: 8 },
   itemLeft: { gap: 2 },
   itemTitle: { color: "#0f172a", fontWeight: "700" },
