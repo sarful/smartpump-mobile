@@ -64,8 +64,9 @@ export function MasterScreen() {
     >
       <View style={styles.headerRow}>
         <View>
+          <Text style={styles.brand}>PUMPPILOT</Text>
           <Text style={styles.title}>Master Dashboard</Text>
-          <Text style={styles.info}>Welcome, {auth.user?.username}</Text>
+          <Text style={styles.info}>Master Admin: {auth.user?.username || "-"}</Text>
         </View>
         <View style={styles.headerActions}>
           <Pressable style={styles.logoutBtn} onPress={auth.logout}>
@@ -288,10 +289,11 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#f8fafc" },
   center: { justifyContent: "center", alignItems: "center" },
   container: { padding: 16, gap: 12 },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { fontSize: 24, fontWeight: "700", color: "#0f172a" },
-  info: { color: "#475569", fontSize: 13 },
+  headerRow: { marginTop: 8, alignItems: "center", gap: 8 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
+  brand: { color: "#2563eb", fontSize: 12, fontWeight: "700", letterSpacing: 2, textAlign: "center" },
+  title: { fontSize: 24, fontWeight: "700", color: "#0f172a", textAlign: "center" },
+  info: { color: "#475569", fontSize: 13, textAlign: "center" },
   error: { color: "#b91c1c", fontSize: 13 },
   success: { color: "#15803d", fontSize: 13 },
   logoutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 8 },

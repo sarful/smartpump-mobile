@@ -1,4 +1,4 @@
-# SmartPump Mobile (React Native)
+# PumpPilot Mobile (React Native)
 
 This app uses the same backend/database architecture:
 

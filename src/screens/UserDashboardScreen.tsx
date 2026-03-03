@@ -102,13 +102,10 @@ export function UserDashboardScreen() {
     >
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>Welcome, {data?.username}</Text>
+          <Text style={styles.brand}>PUMPPILOT</Text>
+          <Text style={styles.title}>User Dashboard</Text>
+          <Text style={styles.subTitle}>User: {data?.username || "-"}</Text>
           <Text style={styles.subTitle}>Admin: {data?.adminName || "-"}</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <Pressable style={styles.logoutBtn} onPress={logout}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -239,6 +236,9 @@ export function UserDashboardScreen() {
             {hasPendingRequest ? "Waiting approval..." : busyAction === "request" ? "Sending..." : "Send Request"}
           </Text>
         </Pressable>
+        <Pressable style={styles.logoutBtnBottom} onPress={logout}>
+          <Text style={styles.logoutTextBottom}>Logout</Text>
+        </Pressable>
       </View>
       <AppFooter />
     </ScrollView>
@@ -262,12 +262,21 @@ const styles = StyleSheet.create({
   center: { justifyContent: "center", alignItems: "center" },
   container: { padding: 16, gap: 12 },
   loadingText: { color: "#334155", fontSize: 15 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
-  title: { fontSize: 28, fontWeight: "700", color: "#0f172a" },
-  subTitle: { marginTop: 2, color: "#475569" },
-  logoutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#fff" },
-  logoutText: { color: "#0f172a", fontWeight: "600" },
+  headerRow: { marginTop: 8, alignItems: "center", gap: 8 },
+  brand: { color: "#2563eb", fontSize: 12, fontWeight: "700", letterSpacing: 2, textAlign: "center" },
+  title: { fontSize: 28, fontWeight: "700", color: "#0f172a", textAlign: "center" },
+  subTitle: { marginTop: 2, color: "#475569", textAlign: "center" },
+  logoutBtnBottom: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    alignItems: "center",
+  },
+  logoutTextBottom: { color: "#0f172a", fontWeight: "700" },
   errorText: { color: "#b91c1c" },
   successText: { color: "#15803d" },
   warningText: {

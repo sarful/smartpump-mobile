@@ -151,9 +151,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           res = await rawRequest(currentAccess);
         }
 
-        const json = await res.json();
+        const raw = await res.text();
+        let json: any = null;
+        try {
+          json = raw ? JSON.parse(raw) : null;
+        } catch {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${raw || "Non-JSON error response"}`);
+          }
+          throw new Error("Invalid JSON response from server");
+        }
+
         if (!res.ok) {
-          throw new Error(json.error || "Request failed");
+          throw new Error(json?.error || "Request failed");
         }
 
         return json as T;
