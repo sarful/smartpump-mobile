@@ -62,6 +62,7 @@ export function UserDashboardScreen() {
   const hasPendingRequest = Boolean(data?.pendingMinuteRequest);
   const canControlMotor = !suspendedReason && !lowBalance && !data?.loadShedding;
   const hasActiveQueue = Boolean(data?.queuePosition && data.queuePosition > 0);
+  const isRunning = data?.motorStatus === "RUNNING";
 
   const queueAwareness = useMemo(() => {
     if (!data) return "-";
@@ -154,8 +155,8 @@ export function UserDashboardScreen() {
         />
         <View style={styles.buttonRow}>
           <Pressable
-            style={[styles.primaryBtn, (!canControlMotor || busyAction === "start") && styles.btnDisabled]}
-            disabled={!canControlMotor || busyAction !== null}
+            style={[styles.primaryBtn, (!canControlMotor || isRunning || busyAction === "start") && styles.btnDisabled]}
+            disabled={!canControlMotor || isRunning || busyAction !== null}
             onPress={() =>
               runAction("start", async () => {
                 const minutes = Number(requestedMinutes);
@@ -188,21 +189,23 @@ export function UserDashboardScreen() {
             <Text style={styles.secondaryBtnText}>{busyAction === "stop" ? "Stopping..." : "Stop Motor"}</Text>
           </Pressable>
 
-          <Pressable
-            style={[styles.primaryBtn, (!canControlMotor || busyAction === "extend") && styles.btnDisabled]}
-            disabled={!canControlMotor || busyAction !== null}
-            onPress={() =>
-              runAction("extend", async () => {
-                await authorizedRequest("/api/mobile/user/extend", {
-                  method: "POST",
-                  body: JSON.stringify({ minutes: 1 }),
-                });
-                setMessage("+1 minute added");
-              })
-            }
-          >
-            <Text style={styles.primaryBtnText}>{busyAction === "extend" ? "Adding..." : "+ Add 1 Minute"}</Text>
-          </Pressable>
+          {isRunning ? (
+            <Pressable
+              style={[styles.primaryBtn, (!canControlMotor || busyAction === "extend") && styles.btnDisabled]}
+              disabled={!canControlMotor || busyAction !== null}
+              onPress={() =>
+                runAction("extend", async () => {
+                  await authorizedRequest("/api/mobile/user/extend", {
+                    method: "POST",
+                    body: JSON.stringify({ minutes: 1 }),
+                  });
+                  setMessage("+1 minute added");
+                })
+              }
+            >
+              <Text style={styles.primaryBtnText}>{busyAction === "extend" ? "Adding..." : "+ Add 1 Minute"}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
