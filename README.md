@@ -38,6 +38,13 @@ Phase-2 admin endpoints:
 - `POST /api/mobile/admin/users/unsuspend`
 - `POST /api/mobile/admin/users/stop-reset`
 
+Phase-3 master endpoints:
+
+- `GET /api/mobile/master/dashboard`
+- `POST /api/mobile/master/settings`
+- `POST /api/mobile/master/admins/action`
+- `POST /api/mobile/master/users/action`
+
 ## Run mobile app
 
 ```bash
