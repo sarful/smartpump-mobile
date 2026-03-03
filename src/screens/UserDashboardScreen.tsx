@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { AppFooter } from "../components/AppFooter";
 
 type DashboardResponse = {
   username: string;
@@ -118,14 +119,14 @@ export function UserDashboardScreen() {
         <Text style={styles.warningText}>Account suspended: {suspendedReason}</Text>
       ) : null}
       {!suspendedReason && lowBalance ? (
-        <Text style={styles.warningText}>আপনার পাঁচ মিনিটের কম ব্যালান্স আছে, রিচার্জ করুন।</Text>
+        <Text style={styles.warningText}>Your balance is below 5 minutes. Please recharge.</Text>
       ) : null}
       {data?.loadShedding ? (
         <Text style={styles.warningText}>Load shedding active. Motor/timer are on HOLD.</Text>
       ) : null}
 
       <View style={styles.grid}>
-        <Card title="Motor Status" value={data?.motorStatus || "OFF"} />
+        <Card title="Motor Status" value={data?.motorStatus || "OFF"} isRunning={data?.motorStatus === "RUNNING"} />
         <Card title="Remaining Minutes" value={`${data?.remainingMinutes ?? 0}m`} />
         <Card title="Available Minutes" value={`${data?.availableMinutes ?? 0}m`} />
         {hasActiveQueue ? (
@@ -239,15 +240,19 @@ export function UserDashboardScreen() {
           </Text>
         </Pressable>
       </View>
+      <AppFooter />
     </ScrollView>
   );
 }
 
-function Card({ title, value }: { title: string; value: string }) {
+function Card({ title, value, isRunning }: { title: string; value: string; isRunning?: boolean }) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardValue}>{value}</Text>
+      <View style={styles.cardValueRow}>
+        {isRunning ? <View style={styles.ledDot} /> : null}
+        <Text style={styles.cardValue}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -284,6 +289,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: { color: "#64748b", fontSize: 12 },
   cardValue: { marginTop: 6, color: "#0f172a", fontWeight: "700", fontSize: 19 },
+  cardValueRow: { marginTop: 6, flexDirection: "row", alignItems: "center", gap: 8 },
+  ledDot: { width: 10, height: 10, borderRadius: 999, backgroundColor: "#10b981" },
   panel: {
     borderWidth: 1,
     borderColor: "#e2e8f0",

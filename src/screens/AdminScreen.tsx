@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { AdminDashboard, mobileAdminApi } from "../services/mobileAdminApi";
+import { AppFooter } from "../components/AppFooter";
 
 export function AdminScreen() {
   const auth = useAuth();
@@ -232,6 +233,7 @@ export function AdminScreen() {
           <Text style={styles.info}>No users.</Text>
         )}
       </View>
+      <AppFooter />
     </ScrollView>
   );
 }

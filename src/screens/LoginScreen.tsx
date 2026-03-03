@@ -3,6 +3,7 @@ import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View 
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config";
 import { mobileAuthApi } from "../services/mobileAuthApi";
+import { AppFooter } from "../components/AppFooter";
 
 type Mode = "home" | "user-login" | "admin-login" | "master-login" | "user-register" | "admin-register";
 
@@ -212,16 +213,17 @@ export function LoginScreen() {
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
 
-          {mode === "home" ? (
-            <View style={styles.menuWrap}>
-              <ActionButton label="User Login" onPress={() => setModeAndReset("user-login")} />
-              <ActionButton label="Admin Login" onPress={() => setModeAndReset("admin-login")} />
-              <ActionButton label="Master Login" onPress={() => setModeAndReset("master-login")} />
-              <ActionButton label="User Register" onPress={() => setModeAndReset("user-register")} />
-              <ActionButton label="Admin Register" onPress={() => setModeAndReset("admin-register")} />
-            </View>
-          ) : (
-            <>
+          <View style={styles.contentArea}>
+            {mode === "home" ? (
+              <View style={styles.menuWrap}>
+                <ActionButton label="User Login" onPress={() => setModeAndReset("user-login")} />
+                <ActionButton label="Admin Login" onPress={() => setModeAndReset("admin-login")} />
+                <ActionButton label="Master Login" onPress={() => setModeAndReset("master-login")} />
+                <ActionButton label="User Register" onPress={() => setModeAndReset("user-register")} />
+                <ActionButton label="Admin Register" onPress={() => setModeAndReset("admin-register")} />
+              </View>
+            ) : (
+              <>
               <TextInput
                 style={styles.input}
                 value={username}
@@ -319,13 +321,15 @@ export function LoginScreen() {
                   <Text style={styles.smallLink}>Go to Home</Text>
                 </Pressable>
               </View>
-            </>
-          )}
+              </>
+            )}
+          </View>
 
           <Pressable style={styles.healthBtn} onPress={checkApi} disabled={checking}>
             <Text style={styles.healthText}>{checking ? "Checking API..." : `API Check (${apiStatus})`}</Text>
           </Pressable>
         </View>
+        <AppFooter />
       </ScrollView>
     </SafeAreaView>
   );
@@ -357,6 +361,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 46, fontWeight: "700", color: "#0a2351", lineHeight: 50, textAlign: "center" },
   subtitle: { color: "#0f172a", fontSize: 14, marginTop: -2, textAlign: "center" },
   menuWrap: { gap: 10, marginTop: 2 },
+  contentArea: { width: "100%", maxWidth: 620, alignSelf: "center" },
   linkBtn: {
     borderWidth: 1,
     borderColor: "#b9c8de",

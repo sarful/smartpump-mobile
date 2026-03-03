@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { MasterDashboardData, mobileMasterApi } from "../services/mobileMasterApi";
+import { AppFooter } from "../components/AppFooter";
 
 export function MasterScreen() {
   const auth = useAuth();
@@ -269,6 +270,7 @@ export function MasterScreen() {
           <Text style={styles.info}>No users.</Text>
         )}
       </View>
+      <AppFooter />
     </ScrollView>
   );
 }

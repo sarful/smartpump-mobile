@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
+import { AppFooter } from "../components/AppFooter";
 
 export function HomeScreen() {
   const { user, logout } = useAuth();
@@ -17,6 +18,7 @@ export function HomeScreen() {
           <Text style={styles.buttonText}>Logout</Text>
         </Pressable>
       </View>
+      <AppFooter />
     </SafeAreaView>
   );
 }
