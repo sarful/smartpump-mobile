@@ -20,6 +20,14 @@ New mobile auth endpoints:
 - `POST /api/mobile/auth/logout`
 - `GET /api/mobile/auth/me` (Bearer access token)
 
+Phase-1 user endpoints:
+
+- `GET /api/mobile/user/dashboard`
+- `POST /api/mobile/user/start`
+- `POST /api/mobile/user/stop`
+- `POST /api/mobile/user/extend`
+- `GET/POST /api/mobile/user/minute-request`
+
 ## Run mobile app
 
 ```bash

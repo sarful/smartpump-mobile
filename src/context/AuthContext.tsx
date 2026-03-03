@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { API_BASE_URL } from "../config";
 import { mobileAuthApi } from "../services/mobileAuthApi";
 
 type AppUser = {
@@ -14,6 +15,7 @@ type AuthState = {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  authorizedRequest: <T>(path: string, init?: RequestInit) => Promise<T>;
 };
 
 const ACCESS_TOKEN_KEY = "sp_access_token";
@@ -23,6 +25,8 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
         const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
         if (!accessToken || !refreshToken) return;
+        setAccessToken(accessToken);
+        setRefreshToken(refreshToken);
 
         try {
           const me = await mobileAuthApi.me(accessToken);
@@ -40,11 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const refreshed = await mobileAuthApi.refresh(refreshToken);
           await AsyncStorage.setItem(ACCESS_TOKEN_KEY, refreshed.accessToken);
           await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshed.refreshToken);
+          setAccessToken(refreshed.accessToken);
+          setRefreshToken(refreshed.refreshToken);
           const me = await mobileAuthApi.me(refreshed.accessToken);
           setUser(me.user);
         }
       } catch {
         await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+        setAccessToken(null);
+        setRefreshToken(null);
         setUser(null);
       } finally {
         setLoading(false);
@@ -62,22 +72,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await mobileAuthApi.login(username, password);
         await AsyncStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
         await AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+        setAccessToken(data.accessToken);
+        setRefreshToken(data.refreshToken);
         setUser(data.user);
       },
       async logout() {
-        const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
-        if (refreshToken) {
+        const storedRefresh = refreshToken ?? (await AsyncStorage.getItem(REFRESH_TOKEN_KEY));
+        if (storedRefresh) {
           try {
-            await mobileAuthApi.logout(refreshToken);
+            await mobileAuthApi.logout(storedRefresh);
           } catch {
             // ignore network failures; clear local tokens anyway
           }
         }
         await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+        setAccessToken(null);
+        setRefreshToken(null);
         setUser(null);
       },
+      async authorizedRequest<T>(path: string, init?: RequestInit) {
+        const rawRequest = async (token: string) => {
+          const res = await fetch(`${API_BASE_URL}${path}`, {
+            ...init,
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+              ...(init?.headers || {}),
+            },
+          });
+          return res;
+        };
+
+        let currentAccess = accessToken ?? (await AsyncStorage.getItem(ACCESS_TOKEN_KEY));
+        let currentRefresh = refreshToken ?? (await AsyncStorage.getItem(REFRESH_TOKEN_KEY));
+
+        if (!currentAccess || !currentRefresh) {
+          throw new Error("Session expired. Please login again.");
+        }
+
+        let res = await rawRequest(currentAccess);
+        if (res.status === 401) {
+          const refreshed = await mobileAuthApi.refresh(currentRefresh);
+          currentAccess = refreshed.accessToken;
+          currentRefresh = refreshed.refreshToken;
+          await AsyncStorage.setItem(ACCESS_TOKEN_KEY, currentAccess);
+          await AsyncStorage.setItem(REFRESH_TOKEN_KEY, currentRefresh);
+          setAccessToken(currentAccess);
+          setRefreshToken(currentRefresh);
+          res = await rawRequest(currentAccess);
+        }
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || "Request failed");
+        }
+
+        return json as T;
+      },
     }),
-    [user, loading],
+    [user, loading, accessToken, refreshToken],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

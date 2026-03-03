@@ -2,7 +2,9 @@ import React from "react";
 import { ActivityIndicator, SafeAreaView, StyleSheet } from "react-native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { LoginScreen } from "./src/screens/LoginScreen";
-import { HomeScreen } from "./src/screens/HomeScreen";
+import { UserDashboardScreen } from "./src/screens/UserDashboardScreen";
+import { AdminScreen } from "./src/screens/AdminScreen";
+import { MasterScreen } from "./src/screens/MasterScreen";
 
 function Root() {
   const { user, loading } = useAuth();
@@ -15,7 +17,10 @@ function Root() {
     );
   }
 
-  return user ? <HomeScreen /> : <LoginScreen />;
+  if (!user) return <LoginScreen />;
+  if (user.role === "master") return <MasterScreen />;
+  if (user.role === "admin") return <AdminScreen />;
+  return <UserDashboardScreen />;
 }
 
 export default function App() {
