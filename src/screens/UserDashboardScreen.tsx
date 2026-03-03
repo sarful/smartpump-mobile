@@ -102,9 +102,11 @@ export function UserDashboardScreen() {
           <Text style={styles.title}>Welcome, {data?.username}</Text>
           <Text style={styles.subTitle}>Admin: {data?.adminName || "-"}</Text>
         </View>
-        <Pressable style={styles.logoutBtn} onPress={logout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable style={styles.logoutBtn} onPress={logout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </Pressable>
+        </View>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -254,6 +256,7 @@ const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
   loadingText: { color: "#334155", fontSize: 15 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
   title: { fontSize: 28, fontWeight: "700", color: "#0f172a" },
   subTitle: { marginTop: 2, color: "#475569" },
   logoutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#fff" },

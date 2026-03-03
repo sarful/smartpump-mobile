@@ -12,12 +12,14 @@ Set these env variables:
 
 - `MONGODB_URI`
 - `MOBILE_JWT_SECRET` (recommended; fallback is `NEXTAUTH_SECRET`)
+- `MOBILE_MAX_SESSIONS` (optional, default `5`)
 
 New mobile auth endpoints:
 
 - `POST /api/mobile/auth/login`
 - `POST /api/mobile/auth/refresh`
 - `POST /api/mobile/auth/logout`
+- `POST /api/mobile/auth/logout-all`
 - `GET /api/mobile/auth/me` (Bearer access token)
 
 Phase-1 user endpoints:
@@ -45,10 +47,19 @@ Phase-3 master endpoints:
 - `POST /api/mobile/master/admins/action`
 - `POST /api/mobile/master/users/action`
 
+Phase-4 hardening included:
+
+- IP-based rate limit on login/refresh
+- refresh-token rotation with reuse detection
+- optional device-bound refresh flow (`deviceId`)
+- max active mobile sessions per account (`MOBILE_MAX_SESSIONS`)
+- logout-all endpoint for account-wide session revoke
+
 ## Run mobile app
 
 ```bash
 cd smartpump-mobile
+cp .env.example .env
 npm install
 npm run start
 ```
@@ -62,3 +73,34 @@ export const API_BASE_URL = "https://pms-two-kappa.vercel.app";
 ```
 
 Use your real deployed backend URL.
+
+## Build Android release
+
+```bash
+npm install -g eas-cli
+eas login
+npm run build:apk   # internal test APK
+npm run build:aab   # Play Store AAB
+```
+
+## Phase-5 release readiness
+
+- Environment-driven API base URL (`EXPO_PUBLIC_API_BASE_URL`)
+- API health check button on login screen (`/api/mobile/health`)
+- Request timeout handling for network calls
+- EAS build profiles for APK/AAB
+- `logout-all` support from Admin/Master screens
+
+## Phase-6 operational checks
+
+- Backend readiness endpoint: `/api/mobile/ready`
+- Mobile preflight script:
+
+```bash
+npm run preflight
+```
+
+Checks:
+- `/api/mobile/health` -> `200`
+- `/api/mobile/ready` -> `200`
+- `/api/mobile/auth/me` -> `401` (expected without token)

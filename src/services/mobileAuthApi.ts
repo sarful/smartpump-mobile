@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "../config";
+import { fetchJson } from "./http";
 
 type LoginResponse = {
   accessToken: string;
@@ -12,31 +13,26 @@ type LoginResponse = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  return fetchJson<T>(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
   });
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(json.error || "Request failed");
-  }
-  return json as T;
 }
 
 export const mobileAuthApi = {
-  login(username: string, password: string) {
+  login(username: string, password: string, deviceId?: string) {
     return request<LoginResponse>("/api/mobile/auth/login", {
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, deviceId }),
     });
   },
-  refresh(refreshToken: string) {
+  refresh(refreshToken: string, deviceId?: string) {
     return request<{ accessToken: string; refreshToken: string }>("/api/mobile/auth/refresh", {
       method: "POST",
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({ refreshToken, deviceId }),
     });
   },
   logout(refreshToken: string) {
@@ -53,6 +49,11 @@ export const mobileAuthApi = {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+    });
+  },
+  health() {
+    return request<{ ok: boolean; service: string; timestamp: string }>("/api/mobile/health", {
+      method: "GET",
     });
   },
 };

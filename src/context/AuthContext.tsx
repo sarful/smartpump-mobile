@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { API_BASE_URL } from "../config";
+import { API_BASE_URL, API_TIMEOUT_MS } from "../config";
 import { mobileAuthApi } from "../services/mobileAuthApi";
+import { getOrCreateDeviceId } from "../utils/deviceId";
 
 type AppUser = {
   id: string;
@@ -15,6 +16,7 @@ type AuthState = {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
   authorizedRequest: <T>(path: string, init?: RequestInit) => Promise<T>;
 };
 
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
         const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+        const deviceId = await getOrCreateDeviceId();
         if (!accessToken || !refreshToken) return;
         setAccessToken(accessToken);
         setRefreshToken(refreshToken);
@@ -43,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(me.user);
           return;
         } catch {
-          const refreshed = await mobileAuthApi.refresh(refreshToken);
+          const refreshed = await mobileAuthApi.refresh(refreshToken, deviceId);
           await AsyncStorage.setItem(ACCESS_TOKEN_KEY, refreshed.accessToken);
           await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshed.refreshToken);
           setAccessToken(refreshed.accessToken);
@@ -69,7 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       async login(username: string, password: string) {
-        const data = await mobileAuthApi.login(username, password);
+        const deviceId = await getOrCreateDeviceId();
+        const data = await mobileAuthApi.login(username, password, deviceId);
         await AsyncStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
         await AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
         setAccessToken(data.accessToken);
@@ -90,16 +94,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRefreshToken(null);
         setUser(null);
       },
+      async logoutAll() {
+        const currentAccess = accessToken ?? (await AsyncStorage.getItem(ACCESS_TOKEN_KEY));
+        if (currentAccess) {
+          try {
+            await fetch(`${API_BASE_URL}/api/mobile/auth/logout-all`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${currentAccess}`,
+              },
+            });
+          } catch {
+            // ignore network failures
+          }
+        }
+        await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+        setAccessToken(null);
+        setRefreshToken(null);
+        setUser(null);
+      },
       async authorizedRequest<T>(path: string, init?: RequestInit) {
         const rawRequest = async (token: string) => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
           const res = await fetch(`${API_BASE_URL}${path}`, {
             ...init,
+            signal: controller.signal,
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
               ...(init?.headers || {}),
             },
           });
+          clearTimeout(timeout);
           return res;
         };
 
@@ -109,10 +137,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!currentAccess || !currentRefresh) {
           throw new Error("Session expired. Please login again.");
         }
+        const deviceId = await getOrCreateDeviceId();
 
         let res = await rawRequest(currentAccess);
         if (res.status === 401) {
-          const refreshed = await mobileAuthApi.refresh(currentRefresh);
+          const refreshed = await mobileAuthApi.refresh(currentRefresh, deviceId);
           currentAccess = refreshed.accessToken;
           currentRefresh = refreshed.refreshToken;
           await AsyncStorage.setItem(ACCESS_TOKEN_KEY, currentAccess);
