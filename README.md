@@ -28,6 +28,16 @@ Phase-1 user endpoints:
 - `POST /api/mobile/user/extend`
 - `GET/POST /api/mobile/user/minute-request`
 
+Phase-2 admin endpoints:
+
+- `GET /api/mobile/admin/dashboard`
+- `POST /api/mobile/admin/recharge`
+- `POST /api/mobile/admin/minute-requests/approve`
+- `POST /api/mobile/admin/minute-requests/decline`
+- `POST /api/mobile/admin/users/suspend`
+- `POST /api/mobile/admin/users/unsuspend`
+- `POST /api/mobile/admin/users/stop-reset`
+
 ## Run mobile app
 
 ```bash
