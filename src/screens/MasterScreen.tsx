@@ -121,6 +121,8 @@ export function MasterScreen() {
                 <Text style={styles.itemTitle}>{a.username}</Text>
                 <Text style={styles.itemText}>Status: {a.status}</Text>
                 <Text style={styles.itemText}>ID: {a.id}</Text>
+                <Text style={styles.itemText}>Load Shedding: {a.loadShedding ? "ON" : "OFF"}</Text>
+                <Text style={styles.itemText}>Device: {a.deviceReady ? "READY" : "NOT READY"}</Text>
               </View>
               <Pressable
                 style={[styles.approveBtn, busyAction === `approve-${a.id}` && styles.disabled]}
@@ -152,6 +154,8 @@ export function MasterScreen() {
                   Status: {a.status}
                   {a.suspendReason ? ` (${a.suspendReason})` : ""}
                 </Text>
+                <Text style={styles.itemText}>Load Shedding: {a.loadShedding ? "ON" : "OFF"}</Text>
+                <Text style={styles.itemText}>Device: {a.deviceReady ? "READY" : "NOT READY"}</Text>
                 <Text style={styles.itemText}>ID: {a.id}</Text>
               </View>
               <View style={styles.itemActions}>
@@ -229,7 +233,7 @@ export function MasterScreen() {
                     {u.motorStatus === "RUNNING" ? "ON" : u.motorStatus}
                   </Text>
                 </Text>
-                <Text style={styles.itemText}>Running Time: {u.motorRunningTime ?? 0}m</Text>
+                <Text style={styles.itemText}>Remaining Minutes: {u.motorRunningTime ?? 0}m</Text>
                 <Text style={styles.itemText}>
                   Status: {u.status}
                   {u.suspendReason ? ` (${u.suspendReason})` : ""}

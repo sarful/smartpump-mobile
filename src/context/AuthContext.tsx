@@ -163,7 +163,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (!res.ok) {
-          throw new Error(json?.error || "Request failed");
+          throw new Error(
+            json?.error ||
+              json?.message ||
+              (typeof json?.details === "string" ? json.details : "") ||
+              `HTTP ${res.status}`,
+          );
         }
 
         return json as T;

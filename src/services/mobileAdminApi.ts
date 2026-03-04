@@ -9,6 +9,10 @@ export type AdminDashboard = {
     status: string;
     suspendReason: string | null;
     loadShedding: boolean;
+    deviceReady: boolean;
+    deviceOnline?: boolean;
+    devicePinHigh: boolean;
+    deviceLastSeenAt: string | null;
   };
   users: Array<{
     id: string;
@@ -90,6 +94,15 @@ export const mobileAdminApi = {
       {
         method: "POST",
         body: JSON.stringify({ userId }),
+      },
+    );
+  },
+  startUser(auth: AuthStateAccessor, userId: string, requestedMinutes?: number) {
+    return auth.authorizedRequest<{ success: true; status: "RUNNING" | "WAITING"; queuePosition?: number }>(
+      "/api/mobile/admin/users/start",
+      {
+        method: "POST",
+        body: JSON.stringify({ userId, requestedMinutes }),
       },
     );
   },

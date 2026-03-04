@@ -73,6 +73,12 @@ export function AdminScreen() {
           <Text style={styles.brand}>PUMPPILOT</Text>
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.info}>Admin: {data?.admin.username || "-"}</Text>
+          <Text style={styles.info}>Status: {data?.admin.status || "active"}</Text>
+          <Text style={styles.info}>Load: {data?.admin.loadShedding ? "ON" : "OFF"}</Text>
+          <Text style={styles.info}>
+            Device: {data?.admin.deviceReady ? "READY" : "NOT READY"}
+            {data?.admin.deviceOnline === false ? " (OFFLINE)" : ""}
+          </Text>
           <Text style={styles.info}>Users: {data?.users.length ?? 0} | Pending: {data?.pendingRequests.length ?? 0}</Text>
         </View>
         <View style={styles.headerActions}>
@@ -181,6 +187,7 @@ export function AdminScreen() {
                   {u.username} ({u.motorStatus})
                 </Text>
                 <Text style={styles.itemText}>Balance: {u.availableMinutes}m</Text>
+                <Text style={styles.itemText}>Remaining Minutes: {u.motorRunningTime ?? 0}m</Text>
                 <Text style={styles.itemText}>
                   Status: {u.status}
                   {u.suspendReason ? ` (${u.suspendReason})` : ""}
@@ -188,6 +195,33 @@ export function AdminScreen() {
                 <Text style={styles.itemText}>User ID: {u.id}</Text>
               </View>
               <View style={styles.itemActions}>
+                <Pressable
+                  style={[styles.startBtn, busyAction === `start-${u.id}` && styles.disabled]}
+                  disabled={
+                    busyAction !== null ||
+                    data?.admin.status !== "active" ||
+                    data?.admin.loadShedding === true ||
+                    data?.admin.deviceReady !== true ||
+                    u.status === "suspended"
+                  }
+                  onPress={() =>
+                    run(`start-${u.id}`, async () => {
+                      if (data?.admin.status !== "active") throw new Error("Admin is suspended");
+                      if (data?.admin.loadShedding) throw new Error("Load shedding active now");
+                      if (!data?.admin.deviceReady) throw new Error("Device is not ready");
+                      if (u.status === "suspended") throw new Error("User is suspended");
+                      const requestedMinutes = u.motorRunningTime > 0 ? u.motorRunningTime : 5;
+                      const result = await mobileAdminApi.startUser(auth, u.id, requestedMinutes);
+                      setMessage(
+                        result.status === "WAITING"
+                          ? `${u.username} queued at #${result.queuePosition ?? "-"}`
+                          : `${u.username} motor started`,
+                      );
+                    })
+                  }
+                >
+                  <Text style={styles.btnText}>Start Motor</Text>
+                </Pressable>
                 <Pressable
                   style={[styles.stopBtn, busyAction === `stop-${u.id}` && styles.disabled]}
                   disabled={busyAction !== null}
@@ -270,6 +304,7 @@ const styles = StyleSheet.create({
   approveBtn: { backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   declineBtn: { backgroundColor: "#dc2626", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   warnBtn: { backgroundColor: "#d97706", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
+  startBtn: { backgroundColor: "#2563eb", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   stopBtn: { backgroundColor: "#0f172a", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   disabled: { opacity: 0.6 },

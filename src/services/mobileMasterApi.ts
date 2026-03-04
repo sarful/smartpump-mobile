@@ -15,6 +15,8 @@ export type MasterDashboardData = {
     username: string;
     status: string;
     loadShedding: boolean;
+    deviceReady: boolean;
+    devicePinHigh: boolean;
     suspendReason: string | null;
   }>;
   pendingAdmins: Array<{
@@ -22,6 +24,8 @@ export type MasterDashboardData = {
     username: string;
     status: string;
     loadShedding: boolean;
+    deviceReady: boolean;
+    devicePinHigh: boolean;
     suspendReason: string | null;
   }>;
   users: Array<{
