@@ -33,6 +33,7 @@ export type MasterDashboardData = {
     suspendReason: string | null;
     availableMinutes: number;
     motorStatus: string;
+    motorRunningTime: number;
   }>;
 };
 
@@ -60,7 +61,12 @@ export const mobileMasterApi = {
   },
   userAction(
     auth: AuthStateAccessor,
-    payload: { userId: string; action: "suspend" | "unsuspend" | "delete"; reason?: string },
+    payload: {
+      userId: string;
+      action: "suspend" | "unsuspend" | "delete" | "stop_reset" | "start";
+      reason?: string;
+      requestedMinutes?: number;
+    },
   ) {
     return auth.authorizedRequest<{ success: true }>("/api/mobile/master/users/action", {
       method: "POST",

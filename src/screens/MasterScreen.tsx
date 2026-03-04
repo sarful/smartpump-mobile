@@ -216,11 +216,55 @@ export function MasterScreen() {
                 <Text style={styles.itemText}>Admin: {u.adminName}</Text>
                 <Text style={styles.itemText}>Balance: {u.availableMinutes}m</Text>
                 <Text style={styles.itemText}>
+                  Motor:{" "}
+                  <Text
+                    style={
+                      u.motorStatus === "RUNNING"
+                        ? styles.motorOn
+                        : u.motorStatus === "HOLD"
+                          ? styles.motorHold
+                          : styles.motorOff
+                    }
+                  >
+                    {u.motorStatus === "RUNNING" ? "ON" : u.motorStatus}
+                  </Text>
+                </Text>
+                <Text style={styles.itemText}>Running Time: {u.motorRunningTime ?? 0}m</Text>
+                <Text style={styles.itemText}>
                   Status: {u.status}
                   {u.suspendReason ? ` (${u.suspendReason})` : ""}
                 </Text>
               </View>
               <View style={styles.itemActions}>
+                <Pressable
+                  style={[styles.stopBtn, busyAction === `us-stop-${u.id}` && styles.disabled]}
+                  disabled={busyAction !== null}
+                  onPress={() =>
+                    run(`us-stop-${u.id}`, async () => {
+                      await mobileMasterApi.userAction(auth, { userId: u.id, action: "stop_reset" });
+                      setMessage(`Stopped/reset ${u.username}`);
+                    })
+                  }
+                >
+                  <Text style={styles.btnText}>Stop/Reset</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.startBtn, busyAction === `us-start-${u.id}` && styles.disabled]}
+                  disabled={busyAction !== null}
+                  onPress={() =>
+                    run(`us-start-${u.id}`, async () => {
+                      const requestedMinutes = u.motorRunningTime > 0 ? u.motorRunningTime : 5;
+                      await mobileMasterApi.userAction(auth, {
+                        userId: u.id,
+                        action: "start",
+                        requestedMinutes,
+                      });
+                      setMessage(`Start request sent for ${u.username}`);
+                    })
+                  }
+                >
+                  <Text style={styles.btnText}>Start Motor</Text>
+                </Pressable>
                 {u.status === "suspended" ? (
                   <Pressable
                     style={[styles.approveBtn, busyAction === `us-uns-${u.id}` && styles.disabled]}
@@ -309,7 +353,12 @@ const styles = StyleSheet.create({
   itemLeft: { gap: 2 },
   itemTitle: { color: "#0f172a", fontWeight: "700" },
   itemText: { color: "#475569", fontSize: 12 },
+  motorOn: { color: "#16a34a", fontWeight: "700" },
+  motorHold: { color: "#d97706", fontWeight: "700" },
+  motorOff: { color: "#64748b", fontWeight: "700" },
   itemActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  startBtn: { backgroundColor: "#2563eb", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
+  stopBtn: { backgroundColor: "#0f172a", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   approveBtn: { backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   warnBtn: { backgroundColor: "#d97706", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   deleteBtn: { backgroundColor: "#dc2626", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
