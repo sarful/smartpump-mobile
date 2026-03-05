@@ -1,4 +1,5 @@
-const baseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL || "https://pms-two-kappa.vercel.app").replace(/\/+$/, "");
+const rawBase = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:3000";
+const baseUrl = rawBase.replace(/\/+$/, "");
 
 async function check(path, expectStatus) {
   const url = `${baseUrl}${path}`;

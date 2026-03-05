@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { AppFooter } from "../components/AppFooter";
 
@@ -18,6 +18,7 @@ type DashboardResponse = {
   adminStatus: "active" | "suspended" | "pending";
   adminSuspendReason: string | null;
   pendingMinuteRequest: { minutes: number; status: "pending" } | null;
+  deviceReady: boolean;
 };
 
 export function UserDashboardScreen() {
@@ -54,6 +55,12 @@ export function UserDashboardScreen() {
     return () => clearInterval(id);
   }, [loadDashboard]);
 
+  useEffect(() => {
+    if (!message) return;
+    const timeoutId = setTimeout(() => setMessage(null), 2500);
+    return () => clearTimeout(timeoutId);
+  }, [message]);
+
   const suspendedReason = data?.userStatus === "suspended"
     ? data.userSuspendReason
     : data?.adminStatus === "suspended"
@@ -61,9 +68,13 @@ export function UserDashboardScreen() {
       : null;
   const lowBalance = (data?.availableMinutes ?? 0) < 5;
   const hasPendingRequest = Boolean(data?.pendingMinuteRequest);
-  const canControlMotor = !suspendedReason && !lowBalance && !data?.loadShedding;
+  const internetOnline = Boolean(data?.deviceReady);
+  const effectiveLoadShedding = Boolean(data?.loadShedding) || !internetOnline;
+  const canControlMotor = !suspendedReason && !lowBalance && !effectiveLoadShedding && internetOnline;
   const hasActiveQueue = Boolean(data?.queuePosition && data.queuePosition > 0);
-  const isRunning = data?.motorStatus === "RUNNING";
+  const effectiveMotorStatus: "OFF" | "RUNNING" | "HOLD" =
+    effectiveLoadShedding ? "HOLD" : (data?.motorStatus ?? "OFF");
+  const isRunning = effectiveMotorStatus === "RUNNING";
 
   const queueAwareness = useMemo(() => {
     if (!data) return "-";
@@ -95,11 +106,12 @@ export function UserDashboardScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard(true)} />}
-    >
+    <SafeAreaView style={styles.page}>
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard(true)} />}
+      >
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.brand}>PUMPPILOT</Text>
@@ -118,12 +130,34 @@ export function UserDashboardScreen() {
       {!suspendedReason && lowBalance ? (
         <Text style={styles.warningText}>Your balance is below 5 minutes. Please recharge.</Text>
       ) : null}
-      {data?.loadShedding ? (
+      <View style={styles.systemReadinessCard}>
+        <Text style={styles.systemReadinessTitle}>System Readiness</Text>
+        <Text style={styles.systemReadinessLine}>
+          Device:{" "}
+          <Text style={internetOnline ? styles.greenText : styles.redText}>
+            {internetOnline ? "Ready" : "Not Ready"}
+          </Text>
+        </Text>
+        <Text style={styles.systemReadinessLine}>
+          Loadshedding:{" "}
+          <Text style={effectiveLoadShedding ? styles.redText : styles.greenText}>
+            {effectiveLoadShedding ? "Yes" : "No"}
+          </Text>
+        </Text>
+        <Text style={styles.systemReadinessLine}>
+          Internet:{" "}
+          <Text style={internetOnline ? styles.greenText : styles.redText}>
+            {internetOnline ? "Online" : "Offline"}
+          </Text>
+        </Text>
+      </View>
+
+      {effectiveLoadShedding ? (
         <Text style={styles.warningText}>Load shedding active. Motor/timer are on HOLD.</Text>
       ) : null}
 
       <View style={styles.grid}>
-        <Card title="Motor Status" value={data?.motorStatus || "OFF"} isRunning={data?.motorStatus === "RUNNING"} />
+        <Card title="Motor Status" value={effectiveMotorStatus} isRunning={effectiveMotorStatus === "RUNNING"} />
         <Card title="Remaining Minutes" value={`${data?.remainingMinutes ?? 0}m`} />
         <Card title="Available Minutes" value={`${data?.availableMinutes ?? 0}m`} />
         {hasActiveQueue ? (
@@ -241,7 +275,8 @@ export function UserDashboardScreen() {
         </Pressable>
       </View>
       <AppFooter />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -287,6 +322,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
+  systemReadinessCard: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 12,
+    gap: 6,
+  },
+  systemReadinessTitle: { color: "#0f172a", fontWeight: "700", fontSize: 16 },
+  systemReadinessLine: { color: "#0f172a", fontSize: 14 },
+  greenText: { color: "#16a34a", fontWeight: "700" },
+  redText: { color: "#dc2626", fontWeight: "700" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   card: {
     width: "48%",

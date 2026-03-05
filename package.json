@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "build:apk": "eas build --platform android --profile preview",
     "build:aab": "eas build --platform android --profile production",
-    "preflight": "node scripts/preflight.mjs"
+    "preflight": "node scripts/preflight.mjs",
+    "package:codecanyon": "node scripts/prepare-codecanyon.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

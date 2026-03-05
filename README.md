@@ -66,13 +66,11 @@ npm run start
 
 ## API base URL
 
-Update `src/config.ts`:
+Set `.env`:
 
-```ts
-export const API_BASE_URL = "https://pms-two-kappa.vercel.app";
+```env
+EXPO_PUBLIC_API_BASE_URL=https://your-backend-domain.com
 ```
-
-Use your real deployed backend URL.
 
 ## Build Android release
 
@@ -104,3 +102,17 @@ Checks:
 - `/api/mobile/health` -> `200`
 - `/api/mobile/ready` -> `200`
 - `/api/mobile/auth/me` -> `401` (expected without token)
+
+## Codecanyon packaging
+
+```bash
+npm run package:codecanyon
+```
+
+Output:
+
+- `dist/codecanyon/PumpPilot-Mobile`
+
+Docs:
+- `MOBILE_CODECANYON_INSTALL.md`
+- `MOBILE_CODECANYON_CHECKLIST.md`

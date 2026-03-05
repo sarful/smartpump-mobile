@@ -1,8 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { AppFooter } from "../components/AppFooter";
 import { useAuth } from "../context/AuthContext";
 import { AdminDashboard, mobileAdminApi } from "../services/mobileAdminApi";
-import { AppFooter } from "../components/AppFooter";
 
 export function AdminScreen() {
   const auth = useAuth();
@@ -16,23 +25,26 @@ export function AdminScreen() {
   const [rechargeUserId, setRechargeUserId] = useState("");
   const [rechargeMinutes, setRechargeMinutes] = useState("10");
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const dashboard = await mobileAdminApi.dashboard(auth);
-      setData(dashboard);
-      if (!rechargeUserId && dashboard.users.length > 0) {
-        setRechargeUserId(dashboard.users[0].id);
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const dashboard = await mobileAdminApi.dashboard(auth);
+        setData(dashboard);
+        if (!rechargeUserId && dashboard.users.length > 0) {
+          setRechargeUserId(dashboard.users[0].id);
+        }
+      } catch (err: any) {
+        setError(err?.message || "Failed to load admin dashboard");
+      } finally {
+        if (isRefresh) setRefreshing(false);
+        else setLoading(false);
       }
-    } catch (err: any) {
-      setError(err?.message || "Failed to load admin dashboard");
-    } finally {
-      if (isRefresh) setRefreshing(false);
-      else setLoading(false);
-    }
-  }, [auth, rechargeUserId]);
+    },
+    [auth, rechargeUserId],
+  );
 
   useEffect(() => {
     load(false);
@@ -62,24 +74,32 @@ export function AdminScreen() {
     );
   }
 
+  const displayLoadShedding =
+    Boolean(data?.admin.loadShedding) || data?.admin.deviceReady === false;
+  const displayInternetOnline =
+    Boolean(data?.admin.deviceReady) && (data?.admin.deviceOnline ?? true);
+
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
-    >
+    <SafeAreaView style={styles.page}>
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+        }
+      >
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.brand}>PUMPPILOT</Text>
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.info}>Admin: {data?.admin.username || "-"}</Text>
-          <Text style={styles.info}>Status: {data?.admin.status || "active"}</Text>
-          <Text style={styles.info}>Load: {data?.admin.loadShedding ? "ON" : "OFF"}</Text>
           <Text style={styles.info}>
-            Device: {data?.admin.deviceReady ? "READY" : "NOT READY"}
-            {data?.admin.deviceOnline === false ? " (OFFLINE)" : ""}
+            Status: {data?.admin.status || "active"}
           </Text>
-          <Text style={styles.info}>Users: {data?.users.length ?? 0} | Pending: {data?.pendingRequests.length ?? 0}</Text>
+          <Text style={styles.info}>
+            Users: {data?.users.length ?? 0} | Pending:{" "}
+            {data?.pendingRequests.length ?? 0}
+          </Text>
         </View>
         <View style={styles.headerActions}>
           <Pressable style={styles.logoutBtn} onPress={auth.logout}>
@@ -92,6 +112,28 @@ export function AdminScreen() {
       {message ? <Text style={styles.success}>{message}</Text> : null}
 
       <View style={styles.panel}>
+        <Text style={styles.panelTitle}>System Readiness</Text>
+        <Text style={styles.itemText}>
+          Device:{" "}
+          <Text style={data?.admin.deviceReady ? styles.greenText : styles.redText}>
+            {data?.admin.deviceReady ? "Ready" : "Not Ready"}
+          </Text>
+        </Text>
+        <Text style={styles.itemText}>
+          Loadshedding:{" "}
+          <Text style={displayLoadShedding ? styles.redText : styles.greenText}>
+            {displayLoadShedding ? "Yes" : "No"}
+          </Text>
+        </Text>
+        <Text style={styles.itemText}>
+          Internet:{" "}
+          <Text style={displayInternetOnline ? styles.greenText : styles.redText}>
+            {displayInternetOnline ? "Online" : "Offline"}
+          </Text>
+        </Text>
+      </View>
+
+      <View style={styles.panel}>
         <Text style={styles.panelTitle}>Recharge Minutes</Text>
         <Text style={styles.info}>Select User</Text>
         <View style={styles.userList}>
@@ -99,10 +141,18 @@ export function AdminScreen() {
             data.users.map((u) => (
               <Pressable
                 key={u.id}
-                style={[styles.userChip, rechargeUserId === u.id && styles.userChipActive]}
+                style={[
+                  styles.userChip,
+                  rechargeUserId === u.id && styles.userChipActive,
+                ]}
                 onPress={() => setRechargeUserId(u.id)}
               >
-                <Text style={[styles.userChipText, rechargeUserId === u.id && styles.userChipTextActive]}>
+                <Text
+                  style={[
+                    styles.userChipText,
+                    rechargeUserId === u.id && styles.userChipTextActive,
+                  ]}
+                >
                   {u.username}
                 </Text>
               </Pressable>
@@ -119,7 +169,10 @@ export function AdminScreen() {
           placeholder="Minutes"
         />
         <Pressable
-          style={[styles.primaryBtn, busyAction === "recharge" && styles.disabled]}
+          style={[
+            styles.primaryBtn,
+            busyAction === "recharge" && styles.disabled,
+          ]}
           disabled={busyAction !== null}
           onPress={() =>
             run("recharge", async () => {
@@ -131,7 +184,9 @@ export function AdminScreen() {
             })
           }
         >
-          <Text style={styles.btnText}>{busyAction === "recharge" ? "Processing..." : "Recharge"}</Text>
+          <Text style={styles.btnText}>
+            {busyAction === "recharge" ? "Processing..." : "Recharge"}
+          </Text>
         </Pressable>
       </View>
 
@@ -146,7 +201,10 @@ export function AdminScreen() {
               </View>
               <View style={styles.itemActions}>
                 <Pressable
-                  style={[styles.approveBtn, busyAction === `approve-${r.id}` && styles.disabled]}
+                  style={[
+                    styles.approveBtn,
+                    busyAction === `approve-${r.id}` && styles.disabled,
+                  ]}
                   disabled={busyAction !== null}
                   onPress={() =>
                     run(`approve-${r.id}`, async () => {
@@ -158,7 +216,10 @@ export function AdminScreen() {
                   <Text style={styles.btnText}>Approve</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.declineBtn, busyAction === `decline-${r.id}` && styles.disabled]}
+                  style={[
+                    styles.declineBtn,
+                    busyAction === `decline-${r.id}` && styles.disabled,
+                  ]}
                   disabled={busyAction !== null}
                   onPress={() =>
                     run(`decline-${r.id}`, async () => {
@@ -186,8 +247,12 @@ export function AdminScreen() {
                 <Text style={styles.itemTitle}>
                   {u.username} ({u.motorStatus})
                 </Text>
-                <Text style={styles.itemText}>Balance: {u.availableMinutes}m</Text>
-                <Text style={styles.itemText}>Remaining Minutes: {u.motorRunningTime ?? 0}m</Text>
+                <Text style={styles.itemText}>
+                  Balance: {u.availableMinutes}m
+                </Text>
+                <Text style={styles.itemText}>
+                  Remaining Minutes: {u.motorRunningTime ?? 0}m
+                </Text>
                 <Text style={styles.itemText}>
                   Status: {u.status}
                   {u.suspendReason ? ` (${u.suspendReason})` : ""}
@@ -196,22 +261,37 @@ export function AdminScreen() {
               </View>
               <View style={styles.itemActions}>
                 <Pressable
-                  style={[styles.startBtn, busyAction === `start-${u.id}` && styles.disabled]}
+                  style={[
+                    styles.startBtn,
+                    busyAction === `start-${u.id}` && styles.disabled,
+                  ]}
                   disabled={
                     busyAction !== null ||
                     data?.admin.status !== "active" ||
-                    data?.admin.loadShedding === true ||
+                    displayLoadShedding === true ||
                     data?.admin.deviceReady !== true ||
+                    displayInternetOnline !== true ||
                     u.status === "suspended"
                   }
                   onPress={() =>
                     run(`start-${u.id}`, async () => {
-                      if (data?.admin.status !== "active") throw new Error("Admin is suspended");
-                      if (data?.admin.loadShedding) throw new Error("Load shedding active now");
-                      if (!data?.admin.deviceReady) throw new Error("Device is not ready");
-                      if (u.status === "suspended") throw new Error("User is suspended");
-                      const requestedMinutes = u.motorRunningTime > 0 ? u.motorRunningTime : 5;
-                      const result = await mobileAdminApi.startUser(auth, u.id, requestedMinutes);
+                      if (data?.admin.status !== "active")
+                        throw new Error("Admin is suspended");
+                      if (displayLoadShedding)
+                        throw new Error("Load shedding active now");
+                      if (!data?.admin.deviceReady)
+                        throw new Error("Device is not ready");
+                      if (!displayInternetOnline)
+                        throw new Error("Internet is offline");
+                      if (u.status === "suspended")
+                        throw new Error("User is suspended");
+                      const requestedMinutes =
+                        u.motorRunningTime > 0 ? u.motorRunningTime : 5;
+                      const result = await mobileAdminApi.startUser(
+                        auth,
+                        u.id,
+                        requestedMinutes,
+                      );
                       setMessage(
                         result.status === "WAITING"
                           ? `${u.username} queued at #${result.queuePosition ?? "-"}`
@@ -223,7 +303,10 @@ export function AdminScreen() {
                   <Text style={styles.btnText}>Start Motor</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.stopBtn, busyAction === `stop-${u.id}` && styles.disabled]}
+                  style={[
+                    styles.stopBtn,
+                    busyAction === `stop-${u.id}` && styles.disabled,
+                  ]}
                   disabled={busyAction !== null}
                   onPress={() =>
                     run(`stop-${u.id}`, async () => {
@@ -237,7 +320,10 @@ export function AdminScreen() {
 
                 {u.status === "suspended" ? (
                   <Pressable
-                    style={[styles.approveBtn, busyAction === `uns-${u.id}` && styles.disabled]}
+                    style={[
+                      styles.approveBtn,
+                      busyAction === `uns-${u.id}` && styles.disabled,
+                    ]}
                     disabled={busyAction !== null}
                     onPress={() =>
                       run(`uns-${u.id}`, async () => {
@@ -250,11 +336,18 @@ export function AdminScreen() {
                   </Pressable>
                 ) : (
                   <Pressable
-                    style={[styles.warnBtn, busyAction === `sus-${u.id}` && styles.disabled]}
+                    style={[
+                      styles.warnBtn,
+                      busyAction === `sus-${u.id}` && styles.disabled,
+                    ]}
                     disabled={busyAction !== null}
                     onPress={() =>
                       run(`sus-${u.id}`, async () => {
-                        await mobileAdminApi.suspendUser(auth, u.id, "Suspended from mobile admin");
+                        await mobileAdminApi.suspendUser(
+                          auth,
+                          u.id,
+                          "Suspended from mobile admin",
+                        );
                         setMessage("User suspended");
                       })
                     }
@@ -270,7 +363,8 @@ export function AdminScreen() {
         )}
       </View>
       <AppFooter />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -279,33 +373,117 @@ const styles = StyleSheet.create({
   center: { justifyContent: "center", alignItems: "center" },
   container: { padding: 16, gap: 12 },
   headerRow: { marginTop: 8, alignItems: "center", gap: 8 },
-  headerActions: { flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
-  brand: { color: "#2563eb", fontSize: 12, fontWeight: "700", letterSpacing: 2, textAlign: "center" },
-  title: { fontSize: 24, fontWeight: "700", color: "#0f172a", textAlign: "center" },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brand: {
+    color: "#2563eb",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 2,
+    textAlign: "center",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0f172a",
+    textAlign: "center",
+  },
   info: { color: "#475569", fontSize: 13, textAlign: "center" },
   error: { color: "#b91c1c", fontSize: 13 },
   success: { color: "#15803d", fontSize: 13 },
-  logoutBtn: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 8 },
+  logoutBtn: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   logoutText: { color: "#0f172a", fontWeight: "700" },
-  panel: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, backgroundColor: "#fff", padding: 12, gap: 10 },
+  panel: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 12,
+    gap: 10,
+  },
   panelTitle: { color: "#0f172a", fontWeight: "700", fontSize: 16 },
-  input: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: "#0f172a", backgroundColor: "#fff" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#0f172a",
+    backgroundColor: "#fff",
+  },
   userList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  userChip: { borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#fff" },
+  userChip: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
   userChipActive: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
   userChipText: { color: "#334155", fontWeight: "600", fontSize: 12 },
   userChipTextActive: { color: "#1d4ed8" },
-  item: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10, padding: 10, backgroundColor: "#f8fafc", gap: 8 },
+  item: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 10,
+    padding: 10,
+    backgroundColor: "#f8fafc",
+    gap: 8,
+  },
   itemLeft: { gap: 2 },
   itemTitle: { color: "#0f172a", fontWeight: "700" },
   itemText: { color: "#475569", fontSize: 12 },
+  greenText: { color: "#16a34a", fontWeight: "700" },
+  redText: { color: "#dc2626", fontWeight: "700" },
   itemActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  primaryBtn: { backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
-  approveBtn: { backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
-  declineBtn: { backgroundColor: "#dc2626", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
-  warnBtn: { backgroundColor: "#d97706", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
-  startBtn: { backgroundColor: "#2563eb", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
-  stopBtn: { backgroundColor: "#0f172a", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
+  primaryBtn: {
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  approveBtn: {
+    backgroundColor: "#16a34a",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  declineBtn: {
+    backgroundColor: "#dc2626",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  warnBtn: {
+    backgroundColor: "#d97706",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  startBtn: {
+    backgroundColor: "#2563eb",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  stopBtn: {
+    backgroundColor: "#0f172a",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 12 },
   disabled: { opacity: 0.6 },
 });

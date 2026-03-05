@@ -15,6 +15,7 @@ export type MasterDashboardData = {
     username: string;
     status: string;
     loadShedding: boolean;
+    deviceOnline?: boolean;
     deviceReady: boolean;
     devicePinHigh: boolean;
     suspendReason: string | null;
@@ -24,6 +25,7 @@ export type MasterDashboardData = {
     username: string;
     status: string;
     loadShedding: boolean;
+    deviceOnline?: boolean;
     deviceReady: boolean;
     devicePinHigh: boolean;
     suspendReason: string | null;

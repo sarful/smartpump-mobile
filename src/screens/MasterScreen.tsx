@@ -121,8 +121,32 @@ export function MasterScreen() {
                 <Text style={styles.itemTitle}>{a.username}</Text>
                 <Text style={styles.itemText}>Status: {a.status}</Text>
                 <Text style={styles.itemText}>ID: {a.id}</Text>
-                <Text style={styles.itemText}>Load Shedding: {a.loadShedding ? "ON" : "OFF"}</Text>
-                <Text style={styles.itemText}>Device: {a.deviceReady ? "READY" : "NOT READY"}</Text>
+                {(() => {
+                  const displayLoadShedding = a.loadShedding || !a.deviceReady;
+                  const displayInternetOnline = a.deviceReady && (a.deviceOnline ?? true);
+                  return (
+                    <>
+                      <Text style={styles.itemText}>
+                        Device:{" "}
+                        <Text style={a.deviceReady ? styles.greenText : styles.redText}>
+                          {a.deviceReady ? "● Ready" : "● Not Ready"}
+                        </Text>
+                      </Text>
+                      <Text style={styles.itemText}>
+                        Loadshedding:{" "}
+                        <Text style={displayLoadShedding ? styles.redText : styles.greenText}>
+                          {displayLoadShedding ? "● Yes" : "● No"}
+                        </Text>
+                      </Text>
+                      <Text style={styles.itemText}>
+                        Internet:{" "}
+                        <Text style={displayInternetOnline ? styles.greenText : styles.redText}>
+                          {displayInternetOnline ? "● Online" : "● Offline"}
+                        </Text>
+                      </Text>
+                    </>
+                  );
+                })()}
               </View>
               <Pressable
                 style={[styles.approveBtn, busyAction === `approve-${a.id}` && styles.disabled]}
@@ -154,8 +178,32 @@ export function MasterScreen() {
                   Status: {a.status}
                   {a.suspendReason ? ` (${a.suspendReason})` : ""}
                 </Text>
-                <Text style={styles.itemText}>Load Shedding: {a.loadShedding ? "ON" : "OFF"}</Text>
-                <Text style={styles.itemText}>Device: {a.deviceReady ? "READY" : "NOT READY"}</Text>
+                {(() => {
+                  const displayLoadShedding = a.loadShedding || !a.deviceReady;
+                  const displayInternetOnline = a.deviceReady && (a.deviceOnline ?? true);
+                  return (
+                    <>
+                      <Text style={styles.itemText}>
+                        Device:{" "}
+                        <Text style={a.deviceReady ? styles.greenText : styles.redText}>
+                          {a.deviceReady ? "● Ready" : "● Not Ready"}
+                        </Text>
+                      </Text>
+                      <Text style={styles.itemText}>
+                        Loadshedding:{" "}
+                        <Text style={displayLoadShedding ? styles.redText : styles.greenText}>
+                          {displayLoadShedding ? "● Yes" : "● No"}
+                        </Text>
+                      </Text>
+                      <Text style={styles.itemText}>
+                        Internet:{" "}
+                        <Text style={displayInternetOnline ? styles.greenText : styles.redText}>
+                          {displayInternetOnline ? "● Online" : "● Offline"}
+                        </Text>
+                      </Text>
+                    </>
+                  );
+                })()}
                 <Text style={styles.itemText}>ID: {a.id}</Text>
               </View>
               <View style={styles.itemActions}>
@@ -357,6 +405,8 @@ const styles = StyleSheet.create({
   itemLeft: { gap: 2 },
   itemTitle: { color: "#0f172a", fontWeight: "700" },
   itemText: { color: "#475569", fontSize: 12 },
+  greenText: { color: "#16a34a", fontWeight: "700" },
+  redText: { color: "#dc2626", fontWeight: "700" },
   motorOn: { color: "#16a34a", fontWeight: "700" },
   motorHold: { color: "#d97706", fontWeight: "700" },
   motorOff: { color: "#64748b", fontWeight: "700" },

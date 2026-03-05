@@ -10,7 +10,7 @@
       "**/*"
     ],
     "android": {
-      "package": "com.smartpump.mobile",
+      "package": "com.pumppilot.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
