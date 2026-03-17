@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { MasterDashboardData, mobileMasterApi } from "../services/mobileMasterApi";
 import { AppFooter } from "../components/AppFooter";
@@ -12,6 +12,9 @@ export function MasterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [rfidUserId, setRfidUserId] = useState("");
+  const [rfidUid, setRfidUid] = useState("");
+  const [rfidMessage, setRfidMessage] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -20,6 +23,9 @@ export function MasterScreen() {
     try {
       const dashboard = await mobileMasterApi.dashboard(auth);
       setData(dashboard);
+      if (!rfidUserId && dashboard.users.length > 0) {
+        setRfidUserId(dashboard.users[0].id);
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to load master dashboard");
     } finally {
@@ -38,6 +44,7 @@ export function MasterScreen() {
     setBusyAction(key);
     setError(null);
     setMessage(null);
+    setRfidMessage(null);
     try {
       await fn();
       await load(true);
@@ -266,6 +273,7 @@ export function MasterScreen() {
               <View style={styles.itemLeft}>
                 <Text style={styles.itemTitle}>{u.username}</Text>
                 <Text style={styles.itemText}>Admin: {u.adminName}</Text>
+                <Text style={styles.itemText}>RFID: {u.rfidUid ?? "-"}</Text>
                 <Text style={styles.itemText}>Balance: {u.availableMinutes}m</Text>
                 <Text style={styles.itemText}>
                   Motor:{" "}
@@ -367,6 +375,76 @@ export function MasterScreen() {
           <Text style={styles.info}>No users.</Text>
         )}
       </View>
+
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>RFID Card Registration</Text>
+        <Text style={styles.info}>Select User</Text>
+        <View style={styles.userList}>
+          {data?.users.length ? (
+            data.users.map((u) => (
+              <Pressable
+                key={`rfid-${u.id}`}
+                style={[
+                  styles.userChip,
+                  rfidUserId === u.id && styles.userChipActive,
+                ]}
+                onPress={() => setRfidUserId(u.id)}
+              >
+                <Text
+                  style={[
+                    styles.userChipText,
+                    rfidUserId === u.id && styles.userChipTextActive,
+                  ]}
+                >
+                  {u.username}
+                  {u.rfidUid ? ` [${u.rfidUid}]` : ""}
+                </Text>
+              </Pressable>
+            ))
+          ) : (
+            <Text style={styles.info}>No users found</Text>
+          )}
+        </View>
+        <TextInput
+          style={styles.input}
+          value={rfidUid}
+          onChangeText={(val) => setRfidUid(val.toUpperCase())}
+          placeholder="RFID UID (UPPERCASE)"
+          autoCapitalize="characters"
+        />
+        <View style={styles.itemActions}>
+          <Pressable
+            style={[styles.primaryBtn, busyAction === "rfid-assign" && styles.disabled]}
+            disabled={busyAction !== null || !rfidUserId || !rfidUid.trim()}
+            onPress={() =>
+              run("rfid-assign", async () => {
+                await mobileMasterApi.assignRfid(auth, rfidUserId, rfidUid.trim());
+                setRfidMessage("RFID assigned");
+                setRfidUid("");
+              })
+            }
+          >
+            <Text style={styles.btnText}>
+              {busyAction === "rfid-assign" ? "Assigning..." : "Assign"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryBtn, busyAction === "rfid-clear" && styles.disabled]}
+            disabled={busyAction !== null || !rfidUserId}
+            onPress={() =>
+              run("rfid-clear", async () => {
+                await mobileMasterApi.assignRfid(auth, rfidUserId, null);
+                setRfidMessage("RFID cleared");
+              })
+            }
+          >
+            <Text style={styles.secondaryBtnText}>
+              {busyAction === "rfid-clear" ? "Clearing..." : "Clear"}
+            </Text>
+          </Pressable>
+        </View>
+        {rfidMessage ? <Text style={styles.success}>{rfidMessage}</Text> : null}
+      </View>
       <AppFooter />
     </ScrollView>
   );
@@ -401,6 +479,29 @@ const styles = StyleSheet.create({
   panel: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, backgroundColor: "#fff", padding: 12, gap: 10 },
   panelTitle: { color: "#0f172a", fontWeight: "700", fontSize: 16 },
   primaryBtn: { backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
+  secondaryBtn: { backgroundColor: "#0f172a", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
+  secondaryBtnText: { color: "#fff", fontWeight: "700" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#0f172a",
+    backgroundColor: "#fff",
+  },
+  userList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  userChip: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+  },
+  userChipActive: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
+  userChipText: { color: "#334155", fontWeight: "600", fontSize: 12 },
+  userChipTextActive: { color: "#1d4ed8" },
   item: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 10, padding: 10, backgroundColor: "#f8fafc", gap: 8 },
   itemLeft: { gap: 2 },
   itemTitle: { color: "#0f172a", fontWeight: "700" },

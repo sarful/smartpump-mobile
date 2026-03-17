@@ -24,6 +24,9 @@ export function AdminScreen() {
 
   const [rechargeUserId, setRechargeUserId] = useState("");
   const [rechargeMinutes, setRechargeMinutes] = useState("10");
+  const [rfidUserId, setRfidUserId] = useState("");
+  const [rfidUid, setRfidUid] = useState("");
+  const [rfidMessage, setRfidMessage] = useState<string | null>(null);
 
   const load = useCallback(
     async (isRefresh = false) => {
@@ -35,6 +38,9 @@ export function AdminScreen() {
         setData(dashboard);
         if (!rechargeUserId && dashboard.users.length > 0) {
           setRechargeUserId(dashboard.users[0].id);
+        }
+        if (!rfidUserId && dashboard.users.length > 0) {
+          setRfidUserId(dashboard.users[0].id);
         }
       } catch (err: any) {
         setError(err?.message || "Failed to load admin dashboard");
@@ -56,6 +62,7 @@ export function AdminScreen() {
     setBusyAction(key);
     setError(null);
     setMessage(null);
+    setRfidMessage(null);
     try {
       await fn();
       await load(true);
@@ -191,6 +198,76 @@ export function AdminScreen() {
       </View>
 
       <View style={styles.panel}>
+        <Text style={styles.panelTitle}>RFID Card Registration</Text>
+        <Text style={styles.info}>Select User</Text>
+        <View style={styles.userList}>
+          {data?.users.length ? (
+            data.users.map((u) => (
+              <Pressable
+                key={`rfid-${u.id}`}
+                style={[
+                  styles.userChip,
+                  rfidUserId === u.id && styles.userChipActive,
+                ]}
+                onPress={() => setRfidUserId(u.id)}
+              >
+                <Text
+                  style={[
+                    styles.userChipText,
+                    rfidUserId === u.id && styles.userChipTextActive,
+                  ]}
+                >
+                  {u.username}
+                  {u.rfidUid ? ` [${u.rfidUid}]` : ""}
+                </Text>
+              </Pressable>
+            ))
+          ) : (
+            <Text style={styles.info}>No users found</Text>
+          )}
+        </View>
+        <TextInput
+          style={styles.input}
+          value={rfidUid}
+          onChangeText={(val) => setRfidUid(val.toUpperCase())}
+          placeholder="RFID UID (UPPERCASE)"
+          autoCapitalize="characters"
+        />
+        <View style={styles.itemActions}>
+          <Pressable
+            style={[styles.primaryBtn, busyAction === "rfid-assign" && styles.disabled]}
+            disabled={busyAction !== null || !rfidUserId || !rfidUid.trim()}
+            onPress={() =>
+              run("rfid-assign", async () => {
+                await mobileAdminApi.assignRfid(auth, rfidUserId, rfidUid.trim());
+                setRfidMessage("RFID assigned");
+                setRfidUid("");
+              })
+            }
+          >
+            <Text style={styles.btnText}>
+              {busyAction === "rfid-assign" ? "Assigning..." : "Assign"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryBtn, busyAction === "rfid-clear" && styles.disabled]}
+            disabled={busyAction !== null || !rfidUserId}
+            onPress={() =>
+              run("rfid-clear", async () => {
+                await mobileAdminApi.assignRfid(auth, rfidUserId, null);
+                setRfidMessage("RFID cleared");
+              })
+            }
+          >
+            <Text style={styles.secondaryBtnText}>
+              {busyAction === "rfid-clear" ? "Clearing..." : "Clear"}
+            </Text>
+          </Pressable>
+        </View>
+        {rfidMessage ? <Text style={styles.success}>{rfidMessage}</Text> : null}
+      </View>
+
+      <View style={styles.panel}>
         <Text style={styles.panelTitle}>Pending Minute Requests</Text>
         {data?.pendingRequests.length ? (
           data.pendingRequests.map((r) => (
@@ -253,6 +330,7 @@ export function AdminScreen() {
                 <Text style={styles.itemText}>
                   Remaining Minutes: {u.motorRunningTime ?? 0}m
                 </Text>
+                <Text style={styles.itemText}>RFID: {u.rfidUid ?? "-"}</Text>
                 <Text style={styles.itemText}>
                   Status: {u.status}
                   {u.suspendReason ? ` (${u.suspendReason})` : ""}

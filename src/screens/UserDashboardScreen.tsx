@@ -6,6 +6,7 @@ import { AppFooter } from "../components/AppFooter";
 type DashboardResponse = {
   username: string;
   adminName: string | null;
+  rfidUid: string | null;
   availableMinutes: number;
   motorStatus: "OFF" | "RUNNING" | "HOLD";
   remainingMinutes: number;
@@ -17,6 +18,10 @@ type DashboardResponse = {
   userSuspendReason: string | null;
   adminStatus: "active" | "suspended" | "pending";
   adminSuspendReason: string | null;
+  cardModeActive: boolean;
+  cardModeMessage: string | null;
+  cardActiveUid: string | null;
+  cardActiveUserId: string | null;
   pendingMinuteRequest: { minutes: number; status: "pending" } | null;
   deviceReady: boolean;
 };
@@ -70,7 +75,7 @@ export function UserDashboardScreen() {
   const hasPendingRequest = Boolean(data?.pendingMinuteRequest);
   const internetOnline = Boolean(data?.deviceReady);
   const effectiveLoadShedding = Boolean(data?.loadShedding) || !internetOnline;
-  const canControlMotor = !suspendedReason && !lowBalance && !effectiveLoadShedding && internetOnline;
+  const canControlMotor = !suspendedReason && !lowBalance && !effectiveLoadShedding && internetOnline && !data?.cardModeActive;
   const hasActiveQueue = Boolean(data?.queuePosition && data.queuePosition > 0);
   const effectiveMotorStatus: "OFF" | "RUNNING" | "HOLD" =
     effectiveLoadShedding ? "HOLD" : (data?.motorStatus ?? "OFF");
@@ -127,6 +132,11 @@ export function UserDashboardScreen() {
       {suspendedReason ? (
         <Text style={styles.warningText}>Account suspended: {suspendedReason}</Text>
       ) : null}
+      {data?.cardModeActive ? (
+        <Text style={styles.cardInfo}>
+          {data.cardModeMessage || "Now using card"}
+        </Text>
+      ) : null}
       {!suspendedReason && lowBalance ? (
         <Text style={styles.warningText}>Your balance is below 5 minutes. Please recharge.</Text>
       ) : null}
@@ -160,6 +170,7 @@ export function UserDashboardScreen() {
         <Card title="Motor Status" value={effectiveMotorStatus} isRunning={effectiveMotorStatus === "RUNNING"} />
         <Card title="Remaining Minutes" value={`${data?.remainingMinutes ?? 0}m`} />
         <Card title="Available Minutes" value={`${data?.availableMinutes ?? 0}m`} />
+        <Card title="RFID UID" value={data?.rfidUid ? data.rfidUid : "-"} />
         {hasActiveQueue ? (
           <>
             <Card title="Running User" value={data?.runningUser || "-"} />
@@ -319,6 +330,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#fcd34d",
     backgroundColor: "#fffbeb",
+    borderRadius: 10,
+    padding: 10,
+  },
+  cardInfo: {
+    color: "#1e40af",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
     borderRadius: 10,
     padding: 10,
   },

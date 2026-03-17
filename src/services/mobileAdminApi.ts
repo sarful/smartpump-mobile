@@ -17,6 +17,7 @@ export type AdminDashboard = {
   users: Array<{
     id: string;
     username: string;
+    rfidUid: string | null;
     availableMinutes: number;
     motorStatus: string;
     motorRunningTime: number;
@@ -103,6 +104,15 @@ export const mobileAdminApi = {
       {
         method: "POST",
         body: JSON.stringify({ userId, requestedMinutes }),
+      },
+    );
+  },
+  assignRfid(auth: AuthStateAccessor, userId: string, rfidUid: string | null) {
+    return auth.authorizedRequest<{ success: true; rfidUid: string | null }>(
+      "/api/mobile/admin/users/rfid",
+      {
+        method: "POST",
+        body: JSON.stringify({ userId, rfidUid }),
       },
     );
   },

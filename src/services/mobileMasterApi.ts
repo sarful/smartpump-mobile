@@ -35,6 +35,7 @@ export type MasterDashboardData = {
     username: string;
     adminId: string;
     adminName: string;
+    rfidUid: string | null;
     status: string;
     suspendReason: string | null;
     availableMinutes: number;
@@ -78,5 +79,14 @@ export const mobileMasterApi = {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  },
+  assignRfid(auth: AuthStateAccessor, userId: string, rfidUid: string | null) {
+    return auth.authorizedRequest<{ success: true; rfidUid: string | null }>(
+      "/api/mobile/master/users/rfid",
+      {
+        method: "POST",
+        body: JSON.stringify({ userId, rfidUid }),
+      },
+    );
   },
 };
