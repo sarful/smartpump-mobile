@@ -75,7 +75,8 @@ export function UserDashboardScreen() {
   const hasPendingRequest = Boolean(data?.pendingMinuteRequest);
   const internetOnline = Boolean(data?.deviceReady);
   const effectiveLoadShedding = Boolean(data?.loadShedding) || !internetOnline;
-  const canControlMotor = !suspendedReason && !lowBalance && !effectiveLoadShedding && internetOnline && !data?.cardModeActive;
+  const cardModeActive = Boolean(data?.cardModeActive);
+  const canControlMotor = !suspendedReason && !lowBalance && !effectiveLoadShedding && internetOnline && !cardModeActive;
   const hasActiveQueue = Boolean(data?.queuePosition && data.queuePosition > 0);
   const effectiveMotorStatus: "OFF" | "RUNNING" | "HOLD" =
     effectiveLoadShedding ? "HOLD" : (data?.motorStatus ?? "OFF");
@@ -132,7 +133,7 @@ export function UserDashboardScreen() {
       {suspendedReason ? (
         <Text style={styles.warningText}>Account suspended: {suspendedReason}</Text>
       ) : null}
-      {data?.cardModeActive ? (
+      {cardModeActive ? (
         <Text style={styles.cardInfo}>
           {data.cardModeMessage || "Now using card"}
         </Text>
@@ -187,70 +188,72 @@ export function UserDashboardScreen() {
         ) : null}
       </View>
 
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Set Minutes</Text>
-        <TextInput
-          value={requestedMinutes}
-          onChangeText={setRequestedMinutes}
-          keyboardType="numeric"
-          style={styles.input}
-          placeholder="Minutes"
-        />
-        <View style={styles.buttonRow}>
-          <Pressable
-            style={[styles.primaryBtn, (!canControlMotor || isRunning || busyAction === "start") && styles.btnDisabled]}
-            disabled={!canControlMotor || isRunning || busyAction !== null}
-            onPress={() =>
-              runAction("start", async () => {
-                const minutes = Number(requestedMinutes);
-                if (!minutes || minutes <= 0) throw new Error("Invalid minutes");
-                const res = await authorizedRequest<{ status: "RUNNING" | "WAITING"; queuePosition?: number }>(
-                  "/api/mobile/user/start",
-                  { method: "POST", body: JSON.stringify({ requestedMinutes: minutes }) },
-                );
-                if (res.status === "WAITING") {
-                  setMessage(`Queued at position #${res.queuePosition ?? "?"}`);
-                } else {
-                  setMessage("Motor started");
-                }
-              })
-            }
-          >
-            <Text style={styles.primaryBtnText}>{busyAction === "start" ? "Starting..." : "Start Motor"}</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.secondaryBtn, busyAction === "stop" && styles.btnDisabled]}
-            disabled={busyAction !== null}
-            onPress={() =>
-              runAction("stop", async () => {
-                await authorizedRequest("/api/mobile/user/stop", { method: "POST" });
-                setMessage("Motor stopped/reset");
-              })
-            }
-          >
-            <Text style={styles.secondaryBtnText}>{busyAction === "stop" ? "Stopping..." : "Stop Motor"}</Text>
-          </Pressable>
-
-          {isRunning ? (
+      {!cardModeActive ? (
+        <View style={styles.panel}>
+          <Text style={styles.panelTitle}>Set Minutes</Text>
+          <TextInput
+            value={requestedMinutes}
+            onChangeText={setRequestedMinutes}
+            keyboardType="numeric"
+            style={styles.input}
+            placeholder="Minutes"
+          />
+          <View style={styles.buttonRow}>
             <Pressable
-              style={[styles.primaryBtn, (!canControlMotor || busyAction === "extend") && styles.btnDisabled]}
-              disabled={!canControlMotor || busyAction !== null}
+              style={[styles.primaryBtn, (!canControlMotor || isRunning || busyAction === "start") && styles.btnDisabled]}
+              disabled={!canControlMotor || isRunning || busyAction !== null}
               onPress={() =>
-                runAction("extend", async () => {
-                  await authorizedRequest("/api/mobile/user/extend", {
-                    method: "POST",
-                    body: JSON.stringify({ minutes: 1 }),
-                  });
-                  setMessage("+1 minute added");
+                runAction("start", async () => {
+                  const minutes = Number(requestedMinutes);
+                  if (!minutes || minutes <= 0) throw new Error("Invalid minutes");
+                  const res = await authorizedRequest<{ status: "RUNNING" | "WAITING"; queuePosition?: number }>(
+                    "/api/mobile/user/start",
+                    { method: "POST", body: JSON.stringify({ requestedMinutes: minutes }) },
+                  );
+                  if (res.status === "WAITING") {
+                    setMessage(`Queued at position #${res.queuePosition ?? "?"}`);
+                  } else {
+                    setMessage("Motor started");
+                  }
                 })
               }
             >
-              <Text style={styles.primaryBtnText}>{busyAction === "extend" ? "Adding..." : "+ Add 1 Minute"}</Text>
+              <Text style={styles.primaryBtnText}>{busyAction === "start" ? "Starting..." : "Start Motor"}</Text>
             </Pressable>
-          ) : null}
+
+            <Pressable
+              style={[styles.secondaryBtn, (busyAction === "stop" || cardModeActive) && styles.btnDisabled]}
+              disabled={busyAction !== null || cardModeActive}
+              onPress={() =>
+                runAction("stop", async () => {
+                  await authorizedRequest("/api/mobile/user/stop", { method: "POST" });
+                  setMessage("Motor stopped/reset");
+                })
+              }
+            >
+              <Text style={styles.secondaryBtnText}>{busyAction === "stop" ? "Stopping..." : "Stop Motor"}</Text>
+            </Pressable>
+
+            {isRunning ? (
+              <Pressable
+                style={[styles.primaryBtn, (!canControlMotor || busyAction === "extend") && styles.btnDisabled]}
+                disabled={!canControlMotor || busyAction !== null}
+                onPress={() =>
+                  runAction("extend", async () => {
+                    await authorizedRequest("/api/mobile/user/extend", {
+                      method: "POST",
+                      body: JSON.stringify({ minutes: 1 }),
+                    });
+                    setMessage("+1 minute added");
+                  })
+                }
+              >
+                <Text style={styles.primaryBtnText}>{busyAction === "extend" ? "Adding..." : "+ Add 1 Minute"}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Request More Minutes</Text>
