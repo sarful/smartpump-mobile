@@ -14,7 +14,6 @@ export function MasterScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [rfidUserId, setRfidUserId] = useState("");
   const [rfidUid, setRfidUid] = useState("");
-  const [rfidMessage, setRfidMessage] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -44,7 +43,6 @@ export function MasterScreen() {
     setBusyAction(key);
     setError(null);
     setMessage(null);
-    setRfidMessage(null);
     try {
       await fn();
       await load(true);
@@ -273,7 +271,7 @@ export function MasterScreen() {
               <View style={styles.itemLeft}>
                 <Text style={styles.itemTitle}>{u.username}</Text>
                 <Text style={styles.itemText}>Admin: {u.adminName}</Text>
-                <Text style={styles.itemText}>RFID: {u.rfidUid ?? "-"}</Text>
+                <Text style={styles.itemText}>RFID: {u.rfidUid ? u.rfidUid : "-"}</Text>
                 <Text style={styles.itemText}>Balance: {u.availableMinutes}m</Text>
                 <Text style={styles.itemText}>
                   Motor:{" "}
@@ -290,6 +288,7 @@ export function MasterScreen() {
                   </Text>
                 </Text>
                 <Text style={styles.itemText}>Remaining Minutes: {u.motorRunningTime ?? 0}m</Text>
+                <Text style={styles.itemText}>Use: {u.useSource ? u.useSource : "-"}</Text>
                 <Text style={styles.itemText}>
                   Status: {u.status}
                   {u.suspendReason ? ` (${u.suspendReason})` : ""}
@@ -383,12 +382,15 @@ export function MasterScreen() {
           {data?.users.length ? (
             data.users.map((u) => (
               <Pressable
-                key={`rfid-${u.id}`}
+                key={u.id}
                 style={[
                   styles.userChip,
                   rfidUserId === u.id && styles.userChipActive,
                 ]}
-                onPress={() => setRfidUserId(u.id)}
+                onPress={() => {
+                  setRfidUserId(u.id);
+                  setRfidUid(u.rfidUid ?? "");
+                }}
               >
                 <Text
                   style={[
@@ -397,30 +399,32 @@ export function MasterScreen() {
                   ]}
                 >
                   {u.username}
-                  {u.rfidUid ? ` [${u.rfidUid}]` : ""}
                 </Text>
               </Pressable>
             ))
           ) : (
-            <Text style={styles.info}>No users found</Text>
+            <Text style={styles.info}>No users.</Text>
           )}
         </View>
         <TextInput
           style={styles.input}
           value={rfidUid}
-          onChangeText={(val) => setRfidUid(val.toUpperCase())}
-          placeholder="RFID UID (UPPERCASE)"
+          onChangeText={(text) => setRfidUid(text.toUpperCase())}
           autoCapitalize="characters"
+          placeholder="RFID UID (UPPERCASE)"
         />
-        <View style={styles.itemActions}>
+        <View style={styles.actionRow}>
           <Pressable
             style={[styles.primaryBtn, busyAction === "rfid-assign" && styles.disabled]}
-            disabled={busyAction !== null || !rfidUserId || !rfidUid.trim()}
+            disabled={busyAction !== null}
             onPress={() =>
               run("rfid-assign", async () => {
-                await mobileMasterApi.assignRfid(auth, rfidUserId, rfidUid.trim());
-                setRfidMessage("RFID assigned");
-                setRfidUid("");
+                if (!rfidUserId) throw new Error("User ID is required");
+                const uid = rfidUid.trim();
+                if (!uid) throw new Error("RFID UID is required");
+                const res = await mobileMasterApi.assignRfid(auth, rfidUserId, uid);
+                setRfidUid(res.rfidUid ?? uid);
+                setMessage("RFID assigned");
               })
             }
           >
@@ -430,20 +434,19 @@ export function MasterScreen() {
           </Pressable>
           <Pressable
             style={[styles.secondaryBtn, busyAction === "rfid-clear" && styles.disabled]}
-            disabled={busyAction !== null || !rfidUserId}
+            disabled={busyAction !== null}
             onPress={() =>
               run("rfid-clear", async () => {
+                if (!rfidUserId) throw new Error("User ID is required");
                 await mobileMasterApi.assignRfid(auth, rfidUserId, null);
-                setRfidMessage("RFID cleared");
+                setRfidUid("");
+                setMessage("RFID cleared");
               })
             }
           >
-            <Text style={styles.secondaryBtnText}>
-              {busyAction === "rfid-clear" ? "Clearing..." : "Clear"}
-            </Text>
+            <Text style={styles.secondaryBtnText}>Clear</Text>
           </Pressable>
         </View>
-        {rfidMessage ? <Text style={styles.success}>{rfidMessage}</Text> : null}
       </View>
       <AppFooter />
     </ScrollView>
@@ -479,8 +482,6 @@ const styles = StyleSheet.create({
   panel: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, backgroundColor: "#fff", padding: 12, gap: 10 },
   panelTitle: { color: "#0f172a", fontWeight: "700", fontSize: 16 },
   primaryBtn: { backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
-  secondaryBtn: { backgroundColor: "#0f172a", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
-  secondaryBtnText: { color: "#fff", fontWeight: "700" },
   input: {
     borderWidth: 1,
     borderColor: "#cbd5e1",
@@ -518,5 +519,15 @@ const styles = StyleSheet.create({
   warnBtn: { backgroundColor: "#d97706", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   deleteBtn: { backgroundColor: "#dc2626", borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  secondaryBtn: {
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+  },
+  secondaryBtnText: { color: "#0f172a", fontWeight: "700", fontSize: 12 },
   disabled: { opacity: 0.6 },
 });

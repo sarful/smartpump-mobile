@@ -18,12 +18,11 @@ type DashboardResponse = {
   userSuspendReason: string | null;
   adminStatus: "active" | "suspended" | "pending";
   adminSuspendReason: string | null;
-  cardModeActive: boolean;
-  cardModeMessage: string | null;
-  cardActiveUid: string | null;
-  cardActiveUserId: string | null;
   pendingMinuteRequest: { minutes: number; status: "pending" } | null;
   deviceReady: boolean;
+  cardModeActive?: boolean;
+  cardModeMessage?: string | null;
+  cardActiveUser?: string | null;
 };
 
 export function UserDashboardScreen() {
@@ -72,10 +71,12 @@ export function UserDashboardScreen() {
       ? data.adminSuspendReason
       : null;
   const lowBalance = (data?.availableMinutes ?? 0) < 5;
+  const cardModeActive = Boolean(data?.cardModeActive);
+  const cardModeMessage = data?.cardModeMessage || "Now using card";
+  const cardActiveUser = data?.cardActiveUser ?? null;
   const hasPendingRequest = Boolean(data?.pendingMinuteRequest);
   const internetOnline = Boolean(data?.deviceReady);
   const effectiveLoadShedding = Boolean(data?.loadShedding) || !internetOnline;
-  const cardModeActive = Boolean(data?.cardModeActive);
   const canControlMotor = !suspendedReason && !lowBalance && !effectiveLoadShedding && internetOnline && !cardModeActive;
   const hasActiveQueue = Boolean(data?.queuePosition && data.queuePosition > 0);
   const effectiveMotorStatus: "OFF" | "RUNNING" | "HOLD" =
@@ -130,13 +131,17 @@ export function UserDashboardScreen() {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       {message ? <Text style={styles.successText}>{message}</Text> : null}
 
+      {cardModeActive ? (
+        <View style={styles.cardModeBanner}>
+          <Text style={styles.cardModeText}>{cardModeMessage}</Text>
+          {cardActiveUser ? (
+            <Text style={styles.cardModeSubText}>Card user: {cardActiveUser}</Text>
+          ) : null}
+        </View>
+      ) : null}
+
       {suspendedReason ? (
         <Text style={styles.warningText}>Account suspended: {suspendedReason}</Text>
-      ) : null}
-      {cardModeActive ? (
-        <Text style={styles.cardInfo}>
-          {data.cardModeMessage || "Now using card"}
-        </Text>
       ) : null}
       {!suspendedReason && lowBalance ? (
         <Text style={styles.warningText}>Your balance is below 5 minutes. Please recharge.</Text>
@@ -328,6 +333,16 @@ const styles = StyleSheet.create({
   logoutTextBottom: { color: "#0f172a", fontWeight: "700" },
   errorText: { color: "#b91c1c" },
   successText: { color: "#15803d" },
+  cardModeBanner: {
+    borderWidth: 1,
+    borderColor: "#c7d2fe",
+    backgroundColor: "#eef2ff",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  cardModeText: { color: "#4338ca", fontWeight: "700", textAlign: "center" },
+  cardModeSubText: { marginTop: 4, color: "#4f46e5", fontSize: 12, textAlign: "center" },
   warningText: {
     color: "#b45309",
     borderWidth: 1,

@@ -17,10 +17,11 @@ export type AdminDashboard = {
   users: Array<{
     id: string;
     username: string;
-    rfidUid: string | null;
+    rfidUid?: string | null;
     availableMinutes: number;
     motorStatus: string;
     motorRunningTime: number;
+    useSource?: string | null;
     status: string;
     suspendReason: string | null;
   }>;

@@ -35,12 +35,13 @@ export type MasterDashboardData = {
     username: string;
     adminId: string;
     adminName: string;
-    rfidUid: string | null;
+    rfidUid?: string | null;
     status: string;
     suspendReason: string | null;
     availableMinutes: number;
     motorStatus: string;
     motorRunningTime: number;
+    useSource?: string | null;
   }>;
 };
 
