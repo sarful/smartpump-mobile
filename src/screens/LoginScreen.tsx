@@ -11,17 +11,8 @@ import {
 import { AppFooter } from "../components/AppFooter";
 import { API_BASE_URL } from "../config";
 import { useAuth } from "../context/AuthContext";
+import { GuestRoute } from "../navigation/guestRoutes";
 import { mobileAuthApi } from "../services/mobileAuthApi";
-
-type Mode =
-  | "home"
-  | "user-login"
-  | "admin-login"
-  | "master-login"
-  | "user-register"
-  | "admin-register"
-  | "guide"
-  | "documentation";
 
 type ActiveAdmin = {
   _id: string;
@@ -289,9 +280,13 @@ const hardwareRows = [
   "ESP32 | GPIO18 (example) | Load Shedding input | Grid status detect",
 ];
 
-export function LoginScreen() {
+type LoginScreenProps = {
+  route: GuestRoute;
+  navigate: (route: GuestRoute) => void;
+};
+
+export function LoginScreen({ route, navigate }: LoginScreenProps) {
   const { login } = useAuth();
-  const [mode, setMode] = useState<Mode>("home");
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -307,43 +302,36 @@ export function LoginScreen() {
   const [admins, setAdmins] = useState<ActiveAdmin[]>([]);
   const [adminId, setAdminId] = useState("");
 
-  const [resetOpen, setResetOpen] = useState(false);
-  const [resetUsername, setResetUsername] = useState("");
-  const [resetPassword, setResetPassword] = useState("");
-  const [resetConfirm, setResetConfirm] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
-
   const isLoginMode =
-    mode === "user-login" || mode === "admin-login" || mode === "master-login";
-  const canReset = mode === "user-login" || mode === "admin-login";
+    route === "user-login" || route === "admin-login" || route === "master-login";
 
   const title = useMemo(() => {
-    if (mode === "user-login") return "User Login";
-    if (mode === "admin-login") return "Admin Login";
-    if (mode === "master-login") return "Master Admin Login";
-    if (mode === "user-register") return "User Register";
-    if (mode === "admin-register") return "Admin Register";
-    if (mode === "guide") return "Beginner Guide";
-    if (mode === "documentation") return "Documentation";
+    if (route === "user-login") return "User Login";
+    if (route === "admin-login") return "Admin Login";
+    if (route === "master-login") return "Master Admin Login";
+    if (route === "user-register") return "User Register";
+    if (route === "admin-register") return "Admin Register";
+    if (route === "guide") return "Beginner Guide";
+    if (route === "documentation") return "Documentation";
     return "Welcome";
-  }, [mode]);
+  }, [route]);
 
   const subtitle = useMemo(() => {
-    if (mode === "admin-login") return "Sign in to manage approvals and pumps.";
-    if (mode === "user-login") return "Sign in to run and monitor your motor.";
-    if (mode === "master-login")
+    if (route === "admin-login") return "Sign in to manage approvals and pumps.";
+    if (route === "user-login") return "Sign in to run and monitor your motor.";
+    if (route === "master-login")
       return "Sign in to control admins and system settings.";
-    if (mode === "admin-register") return "Create admin account for approval.";
-    if (mode === "user-register")
+    if (route === "admin-register") return "Create admin account for approval.";
+    if (route === "user-register")
       return "Create user account under an active admin.";
-    if (mode === "guide") return "Quick start steps for first-time users.";
-    if (mode === "documentation")
+    if (route === "guide") return "Quick start steps for first-time users.";
+    if (route === "documentation")
       return "Technical overview in simple language.";
     return "Choose login or register to continue.";
-  }, [mode]);
+  }, [route]);
 
   useEffect(() => {
-    if (mode !== "user-register") return;
+    if (route !== "user-register") return;
 
     const loadAdmins = async () => {
       try {
@@ -358,7 +346,7 @@ export function LoginScreen() {
     };
 
     loadAdmins();
-  }, [mode, adminId]);
+  }, [route, adminId]);
 
   const resetMessages = () => {
     setError(null);
@@ -401,7 +389,7 @@ export function LoginScreen() {
 
     setLoading(true);
     try {
-      if (mode === "admin-register") {
+      if (route === "admin-register") {
         const res = await fetch(`${API_BASE_URL}/api/admin/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -439,42 +427,6 @@ export function LoginScreen() {
     }
   };
 
-  const onResetPassword = async () => {
-    resetMessages();
-    if (!canReset) return;
-    if (!resetUsername || !resetPassword) {
-      setError("Username and new password are required");
-      return;
-    }
-    if (resetPassword.length < 6) {
-      setError("New password must be at least 6 characters");
-      return;
-    }
-    if (resetPassword !== resetConfirm) {
-      setError("Password confirmation does not match");
-      return;
-    }
-
-    setResetLoading(true);
-    try {
-      await mobileAuthApi.resetPassword({
-        role: mode === "admin-login" ? "admin" : "user",
-        username: resetUsername.trim(),
-        newPassword: resetPassword,
-      });
-      setSuccess("Password reset successful. Now login with new password.");
-      setResetOpen(false);
-      setResetUsername("");
-      setResetPassword("");
-      setResetConfirm("");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Reset failed";
-      setError(message);
-    } finally {
-      setResetLoading(false);
-    }
-  };
-
   const checkApi = async () => {
     setChecking(true);
     try {
@@ -489,9 +441,8 @@ export function LoginScreen() {
     }
   };
 
-  const setModeAndReset = (nextMode: Mode) => {
-    setMode(nextMode);
-    setResetOpen(false);
+  const navigateAndReset = (nextRoute: GuestRoute) => {
+    navigate(nextRoute);
     setError(null);
     setSuccess(null);
   };
@@ -505,28 +456,28 @@ export function LoginScreen() {
           <Text style={styles.subtitle}>{subtitle}</Text>
 
           <View style={styles.contentArea}>
-            {mode === "home" ? (
+            {route === "home" ? (
               <View style={styles.homeWrap}>
                 <View style={styles.menuWrap}>
                   <ActionButton
                     label="User Login"
-                    onPress={() => setModeAndReset("user-login")}
+                    onPress={() => navigateAndReset("user-login")}
                   />
                   <ActionButton
                     label="Admin Login"
-                    onPress={() => setModeAndReset("admin-login")}
+                    onPress={() => navigateAndReset("admin-login")}
                   />
                   <ActionButton
                     label="Master Login"
-                    onPress={() => setModeAndReset("master-login")}
+                    onPress={() => navigateAndReset("master-login")}
                   />
                   <ActionButton
                     label="User Register"
-                    onPress={() => setModeAndReset("user-register")}
+                    onPress={() => navigateAndReset("user-register")}
                   />
                   <ActionButton
                     label="Admin Register"
-                    onPress={() => setModeAndReset("admin-register")}
+                    onPress={() => navigateAndReset("admin-register")}
                   />
                 </View>
 
@@ -538,16 +489,16 @@ export function LoginScreen() {
                   <View style={styles.helpActions}>
                     <ActionButton
                       label="Beginner Guide"
-                      onPress={() => setModeAndReset("guide")}
+                      onPress={() => navigateAndReset("guide")}
                     />
                     <ActionButton
                       label="Documentation"
-                      onPress={() => setModeAndReset("documentation")}
+                      onPress={() => navigateAndReset("documentation")}
                     />
                   </View>
                 </View>
               </View>
-            ) : mode === "guide" ? (
+            ) : route === "guide" ? (
               <View style={styles.docWrap}>
                 <Text style={styles.docLine}>
                   This guide is written for absolute beginners. Follow each step
@@ -565,11 +516,11 @@ export function LoginScreen() {
                     ) : null}
                   </View>
                 ))}
-                <Pressable onPress={() => setModeAndReset("home")}>
+                <Pressable onPress={() => navigateAndReset("home")}>
                   <Text style={styles.smallLink}>Go to Home</Text>
                 </Pressable>
               </View>
-            ) : mode === "documentation" ? (
+            ) : route === "documentation" ? (
               <View style={styles.docWrap}>
                 {/* <Text style={styles.docLine}>Quick technical documentation in simple language.</Text> */}
                 {documentationSections.map((section) => (
@@ -595,7 +546,7 @@ export function LoginScreen() {
                   </View>
                 ))}
                 <Text style={styles.docLine}>API Host: {API_BASE_URL}</Text>
-                <Pressable onPress={() => setModeAndReset("home")}>
+                <Pressable onPress={() => navigateAndReset("home")}>
                   <Text style={styles.smallLink}>Go to Home</Text>
                 </Pressable>
               </View>
@@ -606,7 +557,7 @@ export function LoginScreen() {
                   value={username}
                   onChangeText={setUsername}
                   placeholder={
-                    mode === "admin-login" ? "admin name" : "username"
+                    route === "admin-login" ? "admin name" : "username"
                   }
                   autoCapitalize="none"
                 />
@@ -618,7 +569,7 @@ export function LoginScreen() {
                   secureTextEntry
                 />
 
-                {mode === "user-register" && (
+                {route === "user-register" && (
                   <View style={styles.selectWrap}>
                     <Text style={styles.selectLabel}>Select Admin</Text>
                     {admins.length === 0 ? (
@@ -650,55 +601,14 @@ export function LoginScreen() {
                   </View>
                 )}
 
-                {canReset && (
-                  <Pressable onPress={() => setResetOpen((open) => !open)}>
-                    <Text style={styles.forgotLink}>
-                      {resetOpen ? "Close reset form" : "Forgot password?"}
+                {isLoginMode ? (
+                  <View style={styles.securityNote}>
+                    <Text style={styles.securityNoteTitle}>Password security</Text>
+                    <Text style={styles.securityNoteText}>
+                      Public password reset is disabled. Sign in first, then change your password from the dashboard.
                     </Text>
-                  </Pressable>
-                )}
-
-                {resetOpen && canReset && (
-                  <View style={styles.resetWrap}>
-                    <Text style={styles.resetTitle}>
-                      Reset password (
-                      {mode === "admin-login" ? "Admin" : "User"})
-                    </Text>
-                    <TextInput
-                      style={styles.input}
-                      value={resetUsername}
-                      onChangeText={setResetUsername}
-                      placeholder="Username"
-                      autoCapitalize="none"
-                    />
-                    <TextInput
-                      style={styles.input}
-                      value={resetPassword}
-                      onChangeText={setResetPassword}
-                      placeholder="New Password"
-                      secureTextEntry
-                    />
-                    <TextInput
-                      style={styles.input}
-                      value={resetConfirm}
-                      onChangeText={setResetConfirm}
-                      placeholder="Confirm New Password"
-                      secureTextEntry
-                    />
-                    <Pressable
-                      style={[
-                        styles.resetBtn,
-                        resetLoading && styles.buttonDisabled,
-                      ]}
-                      onPress={onResetPassword}
-                      disabled={resetLoading}
-                    >
-                      <Text style={styles.buttonText}>
-                        {resetLoading ? "Resetting..." : "Reset Password"}
-                      </Text>
-                    </Pressable>
                   </View>
-                )}
+                ) : null}
 
                 {error ? <Text style={styles.error}>{error}</Text> : null}
                 {success ? <Text style={styles.success}>{success}</Text> : null}
@@ -720,8 +630,8 @@ export function LoginScreen() {
                 <View style={styles.bottomRow}>
                   <Pressable
                     onPress={() =>
-                      setModeAndReset(
-                        mode === "admin-login"
+                      navigateAndReset(
+                        route === "admin-login"
                           ? "admin-register"
                           : "user-register",
                       )
@@ -731,7 +641,7 @@ export function LoginScreen() {
                       Need an account? Register
                     </Text>
                   </Pressable>
-                  <Pressable onPress={() => setModeAndReset("home")}>
+                  <Pressable onPress={() => navigateAndReset("home")}>
                     <Text style={styles.smallLink}>Go to Home</Text>
                   </Pressable>
                 </View>
@@ -865,21 +775,16 @@ const styles = StyleSheet.create({
   selectItemActive: { borderColor: "#2563eb", backgroundColor: "#eef4ff" },
   selectItemText: { color: "#0f172a" },
   selectItemTextActive: { color: "#1d4ed8", fontWeight: "700" },
-  forgotLink: { color: "#2563eb", fontSize: 13, fontWeight: "600" },
-  resetWrap: {
+  securityNote: {
     borderWidth: 1,
     borderColor: "#d8e2f0",
     borderRadius: 10,
     padding: 10,
-    gap: 8,
+    gap: 6,
+    backgroundColor: "#f8fafc",
   },
-  resetTitle: { color: "#0f172a", fontWeight: "700", fontSize: 13 },
-  resetBtn: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
+  securityNoteTitle: { color: "#0f172a", fontWeight: "700", fontSize: 13 },
+  securityNoteText: { color: "#475569", fontSize: 13, lineHeight: 18 },
   error: { color: "#dc2626", fontSize: 13 },
   success: { color: "#15803d", fontSize: 13 },
   button: {

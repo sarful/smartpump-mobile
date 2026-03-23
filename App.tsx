@@ -1,13 +1,18 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, SafeAreaView, StyleSheet } from "react-native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
-import { LoginScreen } from "./src/screens/LoginScreen";
+import { GuestNavigator } from "./src/navigation/GuestNavigator";
 import { UserDashboardScreen } from "./src/screens/UserDashboardScreen";
 import { AdminScreen } from "./src/screens/AdminScreen";
 import { MasterScreen } from "./src/screens/MasterScreen";
+import { installMobileCrashReporting } from "./src/utils/installMobileCrashReporting";
 
 function Root() {
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    installMobileCrashReporting(() => user);
+  }, [user]);
 
   if (loading) {
     return (
@@ -17,7 +22,7 @@ function Root() {
     );
   }
 
-  if (!user) return <LoginScreen />;
+  if (!user) return <GuestNavigator />;
   if (user.role === "master") return <MasterScreen />;
   if (user.role === "admin") return <AdminScreen />;
   return <UserDashboardScreen />;

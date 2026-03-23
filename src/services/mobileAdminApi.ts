@@ -54,6 +54,23 @@ export const mobileAdminApi = {
       },
     );
   },
+  createUser(auth: AuthStateAccessor, username: string, password: string) {
+    return auth.authorizedRequest<{ success: true; user: { id: string; username: string } }>(
+      "/api/mobile/admin/users",
+      {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      },
+    );
+  },
+  deleteUser(auth: AuthStateAccessor, userId: string) {
+    return auth.authorizedRequest<{ success: true }>(
+      `/api/mobile/admin/users?userId=${encodeURIComponent(userId)}`,
+      {
+        method: "DELETE",
+      },
+    );
+  },
   approveRequest(auth: AuthStateAccessor, requestId: string) {
     return auth.authorizedRequest<{ success: true; availableMinutes: number }>(
       "/api/mobile/admin/minute-requests/approve",

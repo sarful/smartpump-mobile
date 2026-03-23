@@ -49,6 +49,18 @@ export const mobileMasterApi = {
   dashboard(auth: AuthStateAccessor) {
     return auth.authorizedRequest<MasterDashboardData>("/api/mobile/master/dashboard");
   },
+  createAdmin(
+    auth: AuthStateAccessor,
+    payload: { username: string; password: string; status: "pending" | "active" },
+  ) {
+    return auth.authorizedRequest<{ success: true; admin: { id: string; username: string; status: string } }>(
+      "/api/mobile/master/admins",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
   setApprovalMode(auth: AuthStateAccessor, manualAdminApproval: boolean) {
     return auth.authorizedRequest<{ success: true; manualAdminApproval: boolean }>(
       "/api/mobile/master/settings",
@@ -80,6 +92,30 @@ export const mobileMasterApi = {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  },
+  createUser(
+    auth: AuthStateAccessor,
+    payload: { username: string; password: string; adminId: string },
+  ) {
+    return auth.authorizedRequest<{ success: true; user: { id: string; username: string; adminId: string } }>(
+      "/api/mobile/master/users",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+  updateUserMinutes(
+    auth: AuthStateAccessor,
+    payload: { userId: string; minutes: number; action: "recharge" | "set" },
+  ) {
+    return auth.authorizedRequest<{ success: true; availableMinutes: number }>(
+      "/api/mobile/master/users/minutes",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
   },
   assignRfid(auth: AuthStateAccessor, userId: string, rfidUid: string | null) {
     return auth.authorizedRequest<{ success: true; rfidUid: string | null }>(
