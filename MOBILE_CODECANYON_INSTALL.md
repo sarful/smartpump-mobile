@@ -19,6 +19,8 @@ Set:
 EXPO_PUBLIC_API_BASE_URL=https://your-backend-domain.com
 ```
 
+Do not leave this as a placeholder. Mobile startup, preflight, and release builds now fail if the backend URL is missing.
+
 ## 2) Install
 
 ```bash
@@ -49,8 +51,9 @@ npm run build:apk
 npm run build:aab
 ```
 
+For EAS cloud builds, set `EXPO_PUBLIC_API_BASE_URL` in the EAS environment or project secrets before running the build.
+
 ## Troubleshooting
 - `Network request failed`: check API base URL and backend CORS/firewall.
 - `401 Unauthorized`: login first and ensure token is stored.
 - `Preflight failed`: backend not live or wrong domain/path.
-

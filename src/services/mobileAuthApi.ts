@@ -56,10 +56,4 @@ export const mobileAuthApi = {
       method: "GET",
     });
   },
-  resetPassword(payload: { role: "admin" | "user"; username: string; newPassword: string }) {
-    return request<{ success: boolean }>("/api/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  },
 };

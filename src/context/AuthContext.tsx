@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, API_TIMEOUT_MS } from "../config";
 import { mobileAuthApi } from "../services/mobileAuthApi";
+import { reportMobileIncident } from "../services/mobileTelemetry";
 import { getOrCreateDeviceId } from "../utils/deviceId";
 
 type AppUser = {
@@ -55,6 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(me.user);
         }
       } catch {
+        await reportMobileIncident({
+          source: "auth_bootstrap",
+          message: "Failed to restore stored mobile session",
+          level: "warn",
+        });
         await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
         setAccessToken(null);
         setRefreshToken(null);
@@ -67,18 +73,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bootstrap();
   }, []);
 
+  const clearSession = async () => {
+    await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+    setAccessToken(null);
+    setRefreshToken(null);
+    setUser(null);
+  };
+
   const value = useMemo<AuthState>(
     () => ({
       user,
       loading,
       async login(username: string, password: string) {
-        const deviceId = await getOrCreateDeviceId();
-        const data = await mobileAuthApi.login(username, password, deviceId);
-        await AsyncStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-        await AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-        setAccessToken(data.accessToken);
-        setRefreshToken(data.refreshToken);
-        setUser(data.user);
+        try {
+          const deviceId = await getOrCreateDeviceId();
+          const data = await mobileAuthApi.login(username, password, deviceId);
+          await AsyncStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+          await AsyncStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+          setAccessToken(data.accessToken);
+          setRefreshToken(data.refreshToken);
+          setUser(data.user);
+        } catch (error) {
+          await reportMobileIncident({
+            source: "auth_login",
+            message: error instanceof Error ? error.message : "Mobile login failed",
+            stack: error instanceof Error ? error.stack ?? null : null,
+            level: "warn",
+          });
+          throw error;
+        }
       },
       async logout() {
         const storedRefresh = refreshToken ?? (await AsyncStorage.getItem(REFRESH_TOKEN_KEY));
@@ -89,10 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // ignore network failures; clear local tokens anyway
           }
         }
-        await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
-        setAccessToken(null);
-        setRefreshToken(null);
-        setUser(null);
+        await clearSession();
       },
       async logoutAll() {
         const currentAccess = accessToken ?? (await AsyncStorage.getItem(ACCESS_TOKEN_KEY));
@@ -109,10 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // ignore network failures
           }
         }
-        await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY]);
-        setAccessToken(null);
-        setRefreshToken(null);
-        setUser(null);
+        await clearSession();
       },
       async authorizedRequest<T>(path: string, init?: RequestInit) {
         const rawRequest = async (token: string) => {
@@ -141,14 +158,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         let res = await rawRequest(currentAccess);
         if (res.status === 401) {
-          const refreshed = await mobileAuthApi.refresh(currentRefresh, deviceId);
-          currentAccess = refreshed.accessToken;
-          currentRefresh = refreshed.refreshToken;
-          await AsyncStorage.setItem(ACCESS_TOKEN_KEY, currentAccess);
-          await AsyncStorage.setItem(REFRESH_TOKEN_KEY, currentRefresh);
-          setAccessToken(currentAccess);
-          setRefreshToken(currentRefresh);
-          res = await rawRequest(currentAccess);
+          try {
+            const refreshed = await mobileAuthApi.refresh(currentRefresh, deviceId);
+            currentAccess = refreshed.accessToken;
+            currentRefresh = refreshed.refreshToken;
+            await AsyncStorage.setItem(ACCESS_TOKEN_KEY, currentAccess);
+            await AsyncStorage.setItem(REFRESH_TOKEN_KEY, currentRefresh);
+            setAccessToken(currentAccess);
+            setRefreshToken(currentRefresh);
+            res = await rawRequest(currentAccess);
+          } catch {
+            await reportMobileIncident({
+              source: "auth_refresh",
+              message: "Refresh token rejected during authorized request",
+              level: "warn",
+              role: user?.role,
+              userId: user?.id,
+              adminId: user?.adminId,
+              meta: { path },
+            });
+            await clearSession();
+            throw new Error("Session expired. Please login again.");
+          }
         }
 
         const raw = await res.text();

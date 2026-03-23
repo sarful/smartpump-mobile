@@ -3,6 +3,13 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, Vie
 import { useAuth } from "../context/AuthContext";
 import { MasterDashboardData, mobileMasterApi } from "../services/mobileMasterApi";
 import { AppFooter } from "../components/AppFooter";
+import { ChangePasswordCard } from "../components/ChangePasswordCard";
+import { EmptyStateCard } from "../components/EmptyStateCard";
+import { useAdaptivePolling } from "../hooks/useAdaptivePolling";
+import { MasterAdminsSection } from "../components/master/MasterAdminsSection";
+import { MasterPendingAdminsSection } from "../components/master/MasterPendingAdminsSection";
+import { MasterUsersSection } from "../components/master/MasterUsersSection";
+import { ScreenStateNotice } from "../components/ScreenStateNotice";
 
 export function MasterScreen() {
   const auth = useAuth();
@@ -12,40 +19,62 @@ export function MasterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [rfidUserId, setRfidUserId] = useState("");
   const [rfidUid, setRfidUid] = useState("");
+  const [newAdminUsername, setNewAdminUsername] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminStatus, setNewAdminStatus] = useState<"pending" | "active">("pending");
+  const [newUserUsername, setNewUserUsername] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserAdminId, setNewUserAdminId] = useState("");
+  const [minutesUserId, setMinutesUserId] = useState("");
+  const [minutesValue, setMinutesValue] = useState("10");
+  const [confirmActionKey, setConfirmActionKey] = useState<string | null>(null);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const load = useCallback(async (mode: "initial" | "manual" | "silent" = "initial") => {
+    if (mode === "manual") setRefreshing(true);
+    else if (mode === "initial") setLoading(true);
+    if (mode !== "silent") setError(null);
     try {
       const dashboard = await mobileMasterApi.dashboard(auth);
       setData(dashboard);
+      if (!newUserAdminId && dashboard.admins.length > 0) {
+        const firstActiveAdmin = dashboard.admins.find((admin) => admin.status === "active");
+        if (firstActiveAdmin) setNewUserAdminId(firstActiveAdmin.id);
+      }
+      if (!minutesUserId && dashboard.users.length > 0) {
+        setMinutesUserId(dashboard.users[0].id);
+      }
       if (!rfidUserId && dashboard.users.length > 0) {
         setRfidUserId(dashboard.users[0].id);
       }
+      return true;
     } catch (err: any) {
-      setError(err?.message || "Failed to load master dashboard");
+      if (mode !== "silent") {
+        setError(err?.message || "Failed to load master dashboard");
+      }
+      return false;
     } finally {
-      if (isRefresh) setRefreshing(false);
-      else setLoading(false);
+      if (mode === "manual") setRefreshing(false);
+      else if (mode === "initial") setLoading(false);
     }
-  }, [auth]);
+  }, [auth, minutesUserId, newUserAdminId, rfidUserId]);
 
-  useEffect(() => {
-    load(false);
-    const id = setInterval(() => load(true), 7000);
-    return () => clearInterval(id);
-  }, [load]);
+  useAdaptivePolling({
+    baseIntervalMs: 7000,
+    errorIntervalMs: 12000,
+    onPoll: () => load(data ? "silent" : "initial"),
+  });
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusyAction(key);
+    setConfirmActionKey(null);
     setError(null);
     setMessage(null);
     try {
       await fn();
-      await load(true);
+      await load("silent");
     } catch (err: any) {
       setError(err?.message || "Action failed");
     } finally {
@@ -53,10 +82,41 @@ export function MasterScreen() {
     }
   };
 
+  const requireConfirm = (key: string, nextMessage: string) => {
+    if (confirmActionKey !== key) {
+      setConfirmActionKey(key);
+      setMessage(nextMessage);
+      return false;
+    }
+    return true;
+  };
+
   if (loading && !data) {
     return (
       <View style={[styles.page, styles.center]}>
-        <Text style={styles.info}>Loading master dashboard...</Text>
+        <View style={styles.initialState}>
+          <ScreenStateNotice
+            title="Loading master dashboard"
+            message="We are syncing admins, users, approvals, and system state."
+            variant="info"
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (!loading && !data) {
+    return (
+      <View style={[styles.page, styles.center]}>
+        <View style={styles.initialState}>
+          <ScreenStateNotice
+            title="Dashboard unavailable"
+            message={error || "We could not load the master dashboard."}
+            variant="error"
+            actionLabel="Retry"
+            onAction={() => load("initial")}
+          />
+        </View>
       </View>
     );
   }
@@ -65,7 +125,7 @@ export function MasterScreen() {
     <ScrollView
       style={styles.page}
       contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load("manual")} />}
     >
       <View style={styles.headerRow}>
         <View>
@@ -80,14 +140,81 @@ export function MasterScreen() {
         </View>
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {message ? <Text style={styles.success}>{message}</Text> : null}
+      {error ? (
+        <ScreenStateNotice
+          title="Action failed"
+          message={error}
+          variant="error"
+          actionLabel="Retry"
+          onAction={() => load("manual")}
+        />
+      ) : null}
+      {message ? <ScreenStateNotice message={message} variant="success" /> : null}
 
       <View style={styles.statsGrid}>
         <StatCard title="Admins" value={String(data?.overview.adminCount ?? 0)} />
         <StatCard title="Users" value={String(data?.overview.userCount ?? 0)} />
         <StatCard title="Running" value={String(data?.overview.running ?? 0)} />
         <StatCard title="Waiting" value={String(data?.overview.waiting ?? 0)} />
+      </View>
+
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Create Admin</Text>
+        <TextInput
+          style={styles.input}
+          value={newAdminUsername}
+          onChangeText={setNewAdminUsername}
+          autoCapitalize="none"
+          placeholder="Admin username"
+        />
+        <TextInput
+          style={styles.input}
+          value={newAdminPassword}
+          onChangeText={setNewAdminPassword}
+          secureTextEntry
+          placeholder="Admin password"
+        />
+        <View style={styles.optionRow}>
+          <Pressable
+            style={[styles.userChip, newAdminStatus === "pending" && styles.userChipActive]}
+            onPress={() => setNewAdminStatus("pending")}
+          >
+            <Text style={[styles.userChipText, newAdminStatus === "pending" && styles.userChipTextActive]}>
+              Pending
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.userChip, newAdminStatus === "active" && styles.userChipActive]}
+            onPress={() => setNewAdminStatus("active")}
+          >
+            <Text style={[styles.userChipText, newAdminStatus === "active" && styles.userChipTextActive]}>
+              Active
+            </Text>
+          </Pressable>
+        </View>
+        <Pressable
+          style={[styles.primaryBtn, busyAction === "create-admin" && styles.disabled]}
+          disabled={busyAction !== null}
+          onPress={() =>
+            run("create-admin", async () => {
+              const username = newAdminUsername.trim();
+              if (!username) throw new Error("Admin username is required");
+              if (newAdminPassword.length < 6) throw new Error("Admin password must be at least 6 characters");
+              await mobileMasterApi.createAdmin(auth, {
+                username,
+                password: newAdminPassword,
+                status: newAdminStatus,
+              });
+              setNewAdminUsername("");
+              setNewAdminPassword("");
+              setMessage(`Admin ${username} created`);
+            })
+          }
+        >
+          <Text style={styles.btnText}>
+            {busyAction === "create-admin" ? "Creating..." : "Create Admin"}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.panel}>
@@ -101,6 +228,12 @@ export function MasterScreen() {
           style={[styles.primaryBtn, busyAction === "approval-mode" && styles.disabled]}
           disabled={busyAction !== null}
           onPress={() =>
+            requireConfirm(
+              "approval-mode",
+              data?.manualAdminApproval
+                ? "Press again to switch to auto approval"
+                : "Press again to switch to manual approval",
+            ) &&
             run("approval-mode", async () => {
               await mobileMasterApi.setApprovalMode(auth, !Boolean(data?.manualAdminApproval));
               setMessage("Approval mode updated");
@@ -110,300 +243,267 @@ export function MasterScreen() {
           <Text style={styles.btnText}>
             {busyAction === "approval-mode"
               ? "Saving..."
-              : data?.manualAdminApproval
-                ? "Switch to Auto Approval"
-                : "Switch to Manual Approval"}
+              : confirmActionKey === "approval-mode"
+                ? "Confirm Change"
+                : data?.manualAdminApproval
+                  ? "Switch to Auto Approval"
+                  : "Switch to Manual Approval"}
           </Text>
         </Pressable>
       </View>
 
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Pending Admin Approvals</Text>
-        {data?.pendingAdmins.length ? (
-          data.pendingAdmins.map((a) => (
-            <View style={styles.item} key={a.id}>
-              <View style={styles.itemLeft}>
-                <Text style={styles.itemTitle}>{a.username}</Text>
-                <Text style={styles.itemText}>Status: {a.status}</Text>
-                <Text style={styles.itemText}>ID: {a.id}</Text>
-                {(() => {
-                  const displayLoadShedding = a.loadShedding || !a.deviceReady;
-                  const displayInternetOnline = a.deviceReady && (a.deviceOnline ?? true);
-                  return (
-                    <>
-                      <Text style={styles.itemText}>
-                        Device:{" "}
-                        <Text style={a.deviceReady ? styles.greenText : styles.redText}>
-                          {a.deviceReady ? "● Ready" : "● Not Ready"}
-                        </Text>
-                      </Text>
-                      <Text style={styles.itemText}>
-                        Loadshedding:{" "}
-                        <Text style={displayLoadShedding ? styles.redText : styles.greenText}>
-                          {displayLoadShedding ? "● Yes" : "● No"}
-                        </Text>
-                      </Text>
-                      <Text style={styles.itemText}>
-                        Internet:{" "}
-                        <Text style={displayInternetOnline ? styles.greenText : styles.redText}>
-                          {displayInternetOnline ? "● Online" : "● Offline"}
-                        </Text>
-                      </Text>
-                    </>
-                  );
-                })()}
-              </View>
-              <Pressable
-                style={[styles.approveBtn, busyAction === `approve-${a.id}` && styles.disabled]}
-                disabled={busyAction !== null}
-                onPress={() =>
-                  run(`approve-${a.id}`, async () => {
-                    await mobileMasterApi.adminAction(auth, { adminId: a.id, action: "approve" });
-                    setMessage(`Approved ${a.username}`);
-                  })
-                }
-              >
-                <Text style={styles.btnText}>Approve</Text>
-              </Pressable>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.info}>No pending admins.</Text>
-        )}
-      </View>
-
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>All Admins</Text>
-        {data?.admins.length ? (
-          data.admins.map((a) => (
-            <View style={styles.item} key={a.id}>
-              <View style={styles.itemLeft}>
-                <Text style={styles.itemTitle}>{a.username}</Text>
-                <Text style={styles.itemText}>
-                  Status: {a.status}
-                  {a.suspendReason ? ` (${a.suspendReason})` : ""}
-                </Text>
-                {(() => {
-                  const displayLoadShedding = a.loadShedding || !a.deviceReady;
-                  const displayInternetOnline = a.deviceReady && (a.deviceOnline ?? true);
-                  return (
-                    <>
-                      <Text style={styles.itemText}>
-                        Device:{" "}
-                        <Text style={a.deviceReady ? styles.greenText : styles.redText}>
-                          {a.deviceReady ? "● Ready" : "● Not Ready"}
-                        </Text>
-                      </Text>
-                      <Text style={styles.itemText}>
-                        Loadshedding:{" "}
-                        <Text style={displayLoadShedding ? styles.redText : styles.greenText}>
-                          {displayLoadShedding ? "● Yes" : "● No"}
-                        </Text>
-                      </Text>
-                      <Text style={styles.itemText}>
-                        Internet:{" "}
-                        <Text style={displayInternetOnline ? styles.greenText : styles.redText}>
-                          {displayInternetOnline ? "● Online" : "● Offline"}
-                        </Text>
-                      </Text>
-                    </>
-                  );
-                })()}
-                <Text style={styles.itemText}>ID: {a.id}</Text>
-              </View>
-              <View style={styles.itemActions}>
-                {a.status === "suspended" ? (
-                  <Pressable
-                    style={[styles.approveBtn, busyAction === `ad-uns-${a.id}` && styles.disabled]}
-                    disabled={busyAction !== null}
-                    onPress={() =>
-                      run(`ad-uns-${a.id}`, async () => {
-                        await mobileMasterApi.adminAction(auth, { adminId: a.id, action: "unsuspend" });
-                        setMessage(`Unsuspended ${a.username}`);
-                      })
-                    }
-                  >
-                    <Text style={styles.btnText}>Unsuspend</Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={[styles.warnBtn, busyAction === `ad-sus-${a.id}` && styles.disabled]}
-                    disabled={busyAction !== null}
-                    onPress={() =>
-                      run(`ad-sus-${a.id}`, async () => {
-                        await mobileMasterApi.adminAction(auth, {
-                          adminId: a.id,
-                          action: "suspend",
-                          reason: "Suspended from master mobile",
-                        });
-                        setMessage(`Suspended ${a.username}`);
-                      })
-                    }
-                  >
-                    <Text style={styles.btnText}>Suspend</Text>
-                  </Pressable>
-                )}
+        <Text style={styles.panelTitle}>Create User</Text>
+        <Text style={styles.info}>Select Active Admin</Text>
+        <View style={styles.userList}>
+          {data?.admins.filter((admin) => admin.status === "active").length ? (
+            data.admins
+              .filter((admin) => admin.status === "active")
+              .map((admin) => (
                 <Pressable
-                  style={[styles.deleteBtn, busyAction === `ad-del-${a.id}` && styles.disabled]}
-                  disabled={busyAction !== null}
-                  onPress={() =>
-                    run(`ad-del-${a.id}`, async () => {
-                      await mobileMasterApi.adminAction(auth, { adminId: a.id, action: "delete" });
-                      setMessage(`Deleted admin ${a.username}`);
-                    })
-                  }
+                  key={admin.id}
+                  style={[styles.userChip, newUserAdminId === admin.id && styles.userChipActive]}
+                  onPress={() => setNewUserAdminId(admin.id)}
                 >
-                  <Text style={styles.btnText}>Delete</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.info}>No admins.</Text>
-        )}
-      </View>
-
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>All Users</Text>
-        {data?.users.length ? (
-          data.users.map((u) => (
-            <View style={styles.item} key={u.id}>
-              <View style={styles.itemLeft}>
-                <Text style={styles.itemTitle}>{u.username}</Text>
-                <Text style={styles.itemText}>Admin: {u.adminName}</Text>
-                <Text style={styles.itemText}>RFID: {u.rfidUid ? u.rfidUid : "-"}</Text>
-                <Text style={styles.itemText}>Balance: {u.availableMinutes}m</Text>
-                <Text style={styles.itemText}>
-                  Motor:{" "}
-                  <Text
-                    style={
-                      u.motorStatus === "RUNNING"
-                        ? styles.motorOn
-                        : u.motorStatus === "HOLD"
-                          ? styles.motorHold
-                          : styles.motorOff
-                    }
-                  >
-                    {u.motorStatus === "RUNNING" ? "ON" : u.motorStatus}
+                  <Text style={[styles.userChipText, newUserAdminId === admin.id && styles.userChipTextActive]}>
+                    {admin.username}
                   </Text>
-                </Text>
-                <Text style={styles.itemText}>Remaining Minutes: {u.motorRunningTime ?? 0}m</Text>
-                <Text style={styles.itemText}>Use: {u.useSource ? u.useSource : "-"}</Text>
-                <Text style={styles.itemText}>
-                  Status: {u.status}
-                  {u.suspendReason ? ` (${u.suspendReason})` : ""}
-                </Text>
-              </View>
-              <View style={styles.itemActions}>
-                <Pressable
-                  style={[styles.stopBtn, busyAction === `us-stop-${u.id}` && styles.disabled]}
-                  disabled={busyAction !== null}
-                  onPress={() =>
-                    run(`us-stop-${u.id}`, async () => {
-                      await mobileMasterApi.userAction(auth, { userId: u.id, action: "stop_reset" });
-                      setMessage(`Stopped/reset ${u.username}`);
-                    })
-                  }
-                >
-                  <Text style={styles.btnText}>Stop/Reset</Text>
                 </Pressable>
-                <Pressable
-                  style={[styles.startBtn, busyAction === `us-start-${u.id}` && styles.disabled]}
-                  disabled={busyAction !== null}
-                  onPress={() =>
-                    run(`us-start-${u.id}`, async () => {
-                      const requestedMinutes = u.motorRunningTime > 0 ? u.motorRunningTime : 5;
-                      await mobileMasterApi.userAction(auth, {
-                        userId: u.id,
-                        action: "start",
-                        requestedMinutes,
-                      });
-                      setMessage(`Start request sent for ${u.username}`);
-                    })
-                  }
-                >
-                  <Text style={styles.btnText}>Start Motor</Text>
-                </Pressable>
-                {u.status === "suspended" ? (
-                  <Pressable
-                    style={[styles.approveBtn, busyAction === `us-uns-${u.id}` && styles.disabled]}
-                    disabled={busyAction !== null}
-                    onPress={() =>
-                      run(`us-uns-${u.id}`, async () => {
-                        await mobileMasterApi.userAction(auth, { userId: u.id, action: "unsuspend" });
-                        setMessage(`Unsuspended ${u.username}`);
-                      })
-                    }
-                  >
-                    <Text style={styles.btnText}>Unsuspend</Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={[styles.warnBtn, busyAction === `us-sus-${u.id}` && styles.disabled]}
-                    disabled={busyAction !== null}
-                    onPress={() =>
-                      run(`us-sus-${u.id}`, async () => {
-                        await mobileMasterApi.userAction(auth, {
-                          userId: u.id,
-                          action: "suspend",
-                          reason: "Suspended from master mobile",
-                        });
-                        setMessage(`Suspended ${u.username}`);
-                      })
-                    }
-                  >
-                    <Text style={styles.btnText}>Suspend</Text>
-                  </Pressable>
-                )}
-                <Pressable
-                  style={[styles.deleteBtn, busyAction === `us-del-${u.id}` && styles.disabled]}
-                  disabled={busyAction !== null}
-                  onPress={() =>
-                    run(`us-del-${u.id}`, async () => {
-                      await mobileMasterApi.userAction(auth, { userId: u.id, action: "delete" });
-                      setMessage(`Deleted user ${u.username}`);
-                    })
-                  }
-                >
-                  <Text style={styles.btnText}>Delete</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.info}>No users.</Text>
-        )}
+              ))
+          ) : (
+            <EmptyStateCard title="No active admins" message="Activate an admin before creating users under that tenant." />
+          )}
+        </View>
+        <TextInput
+          style={styles.input}
+          value={newUserUsername}
+          onChangeText={setNewUserUsername}
+          autoCapitalize="none"
+          placeholder="User username"
+        />
+        <TextInput
+          style={styles.input}
+          value={newUserPassword}
+          onChangeText={setNewUserPassword}
+          secureTextEntry
+          placeholder="User password"
+        />
+        <Pressable
+          style={[styles.primaryBtn, busyAction === "create-user" && styles.disabled]}
+          disabled={busyAction !== null}
+          onPress={() =>
+            run("create-user", async () => {
+              const username = newUserUsername.trim();
+              if (!newUserAdminId) throw new Error("Select an active admin");
+              if (!username) throw new Error("User username is required");
+              if (newUserPassword.length < 6) throw new Error("User password must be at least 6 characters");
+              await mobileMasterApi.createUser(auth, {
+                username,
+                password: newUserPassword,
+                adminId: newUserAdminId,
+              });
+              setNewUserUsername("");
+              setNewUserPassword("");
+              setMessage(`User ${username} created`);
+            })
+          }
+        >
+          <Text style={styles.btnText}>
+            {busyAction === "create-user" ? "Creating..." : "Create User"}
+          </Text>
+        </Pressable>
       </View>
+
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Balance Management</Text>
+        <Text style={styles.info}>Select User</Text>
+        <View style={styles.userList}>
+          {data?.users.length ? (
+            data.users.map((user) => (
+              <Pressable
+                key={user.id}
+                style={[styles.userChip, minutesUserId === user.id && styles.userChipActive]}
+                onPress={() => setMinutesUserId(user.id)}
+              >
+                <Text style={[styles.userChipText, minutesUserId === user.id && styles.userChipTextActive]}>
+                  {user.username}
+                </Text>
+              </Pressable>
+            ))
+          ) : (
+            <EmptyStateCard title="No users available" message="Create a user before adjusting balances from mobile." />
+          )}
+        </View>
+        <TextInput
+          style={styles.input}
+          value={minutesValue}
+          onChangeText={setMinutesValue}
+          keyboardType="numeric"
+          placeholder="Minutes"
+        />
+        <View style={styles.actionRow}>
+          <Pressable
+            style={[styles.primaryBtn, busyAction === "recharge-minutes" && styles.disabled]}
+            disabled={busyAction !== null}
+            onPress={() =>
+              run("recharge-minutes", async () => {
+                const minutes = Number(minutesValue);
+                if (!minutesUserId) throw new Error("Select a user");
+                if (!Number.isFinite(minutes) || minutes <= 0) {
+                  throw new Error("Recharge minutes must be greater than 0");
+                }
+                await mobileMasterApi.updateUserMinutes(auth, {
+                  userId: minutesUserId,
+                  minutes,
+                  action: "recharge",
+                });
+                setMessage("User balance recharged");
+              })
+            }
+          >
+            <Text style={styles.btnText}>
+              {busyAction === "recharge-minutes" ? "Recharging..." : "Recharge Minutes"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryBtn, busyAction === "set-minutes" && styles.disabled]}
+            disabled={busyAction !== null}
+            onPress={() =>
+              run("set-minutes", async () => {
+                const minutes = Number(minutesValue);
+                if (!minutesUserId) throw new Error("Select a user");
+                if (!Number.isFinite(minutes) || minutes < 0) {
+                  throw new Error("Set minutes must be 0 or greater");
+                }
+                await mobileMasterApi.updateUserMinutes(auth, {
+                  userId: minutesUserId,
+                  minutes,
+                  action: "set",
+                });
+                setMessage("User balance updated");
+              })
+            }
+          >
+            <Text style={styles.secondaryBtnText}>
+              {busyAction === "set-minutes" ? "Saving..." : "Set Balance"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <MasterPendingAdminsSection
+        admins={data?.pendingAdmins ?? []}
+        busyAction={busyAction}
+        styles={styles}
+        onApprove={(adminId, username) =>
+          run(`approve-${adminId}`, async () => {
+            await mobileMasterApi.adminAction(auth, { adminId, action: "approve" });
+            setMessage(`Approved ${username}`);
+          })
+        }
+      />
+
+      <MasterAdminsSection
+        admins={data?.admins ?? []}
+        busyAction={busyAction}
+        confirmActionKey={confirmActionKey}
+        styles={styles}
+        onUnsuspend={(admin) =>
+          run(`ad-uns-${admin.id}`, async () => {
+            await mobileMasterApi.adminAction(auth, { adminId: admin.id, action: "unsuspend" });
+            setMessage(`Unsuspended ${admin.username}`);
+          })
+        }
+        onSuspend={(admin) =>
+          requireConfirm(`ad-sus-${admin.id}`, `Press Suspend again to suspend ${admin.username}`) &&
+          run(`ad-sus-${admin.id}`, async () => {
+            await mobileMasterApi.adminAction(auth, {
+              adminId: admin.id,
+              action: "suspend",
+              reason: "Suspended from master mobile",
+            });
+            setMessage(`Suspended ${admin.username}`);
+          })
+        }
+        onDelete={(admin) =>
+          requireConfirm(`ad-del-${admin.id}`, `Press Delete again to remove admin ${admin.username}`) &&
+          run(`ad-del-${admin.id}`, async () => {
+            await mobileMasterApi.adminAction(auth, { adminId: admin.id, action: "delete" });
+            setMessage(`Deleted admin ${admin.username}`);
+          })
+        }
+      />
+
+      <MasterUsersSection
+        users={data?.users ?? []}
+        busyAction={busyAction}
+        confirmActionKey={confirmActionKey}
+        styles={styles}
+        onStopReset={(user) =>
+          requireConfirm(`us-stop-${user.id}`, `Press Stop/Reset again to reset ${user.username}`) &&
+          run(`us-stop-${user.id}`, async () => {
+            await mobileMasterApi.userAction(auth, { userId: user.id, action: "stop_reset" });
+            setMessage(`Stopped/reset ${user.username}`);
+          })
+        }
+        onStart={(user) =>
+          run(`us-start-${user.id}`, async () => {
+            const requestedMinutes = user.motorRunningTime > 0 ? user.motorRunningTime : 5;
+            await mobileMasterApi.userAction(auth, {
+              userId: user.id,
+              action: "start",
+              requestedMinutes,
+            });
+            setMessage(`Start request sent for ${user.username}`);
+          })
+        }
+        onUnsuspend={(user) =>
+          run(`us-uns-${user.id}`, async () => {
+            await mobileMasterApi.userAction(auth, { userId: user.id, action: "unsuspend" });
+            setMessage(`Unsuspended ${user.username}`);
+          })
+        }
+        onSuspend={(user) =>
+          requireConfirm(`us-sus-${user.id}`, `Press Suspend again to suspend ${user.username}`) &&
+          run(`us-sus-${user.id}`, async () => {
+            await mobileMasterApi.userAction(auth, {
+              userId: user.id,
+              action: "suspend",
+              reason: "Suspended from master mobile",
+            });
+            setMessage(`Suspended ${user.username}`);
+          })
+        }
+        onDelete={(user) =>
+          requireConfirm(`us-del-${user.id}`, `Press Delete again to remove ${user.username}`) &&
+          run(`us-del-${user.id}`, async () => {
+            await mobileMasterApi.userAction(auth, { userId: user.id, action: "delete" });
+            setMessage(`Deleted user ${user.username}`);
+          })
+        }
+      />
 
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>RFID Card Registration</Text>
         <Text style={styles.info}>Select User</Text>
         <View style={styles.userList}>
           {data?.users.length ? (
-            data.users.map((u) => (
+            data.users.map((user) => (
               <Pressable
-                key={u.id}
-                style={[
-                  styles.userChip,
-                  rfidUserId === u.id && styles.userChipActive,
-                ]}
+                key={user.id}
+                style={[styles.userChip, rfidUserId === user.id && styles.userChipActive]}
                 onPress={() => {
-                  setRfidUserId(u.id);
-                  setRfidUid(u.rfidUid ?? "");
+                  setRfidUserId(user.id);
+                  setRfidUid(user.rfidUid ?? "");
                 }}
               >
-                <Text
-                  style={[
-                    styles.userChipText,
-                    rfidUserId === u.id && styles.userChipTextActive,
-                  ]}
-                >
-                  {u.username}
+                <Text style={[styles.userChipText, rfidUserId === user.id && styles.userChipTextActive]}>
+                  {user.username}
                 </Text>
               </Pressable>
             ))
           ) : (
-            <Text style={styles.info}>No users.</Text>
+            <EmptyStateCard title="No users available" message="Create a user before assigning or clearing RFID cards." />
           )}
         </View>
         <TextInput
@@ -448,7 +548,22 @@ export function MasterScreen() {
           </Pressable>
         </View>
       </View>
-      <AppFooter />
+
+      {showChangePassword ? (
+        <ChangePasswordCard
+          onSubmit={async (currentPassword, newPassword) => {
+            await auth.authorizedRequest("/api/mobile/auth/change-password", {
+              method: "POST",
+              body: JSON.stringify({ currentPassword, newPassword }),
+            });
+            await auth.logout();
+          }}
+        />
+      ) : null}
+      <AppFooter
+        actionLabel={showChangePassword ? "Hide Change Password" : "Change Password"}
+        onActionPress={() => setShowChangePassword((value) => !value)}
+      />
     </ScrollView>
   );
 }
@@ -466,6 +581,7 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#f8fafc" },
   center: { justifyContent: "center", alignItems: "center" },
   container: { padding: 16, gap: 12 },
+  initialState: { width: "100%", maxWidth: 420, paddingHorizontal: 16 },
   headerRow: { marginTop: 8, alignItems: "center", gap: 8 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
   brand: { color: "#2563eb", fontSize: 12, fontWeight: "700", letterSpacing: 2, textAlign: "center" },
@@ -482,6 +598,7 @@ const styles = StyleSheet.create({
   panel: { borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 12, backgroundColor: "#fff", padding: 12, gap: 10 },
   panelTitle: { color: "#0f172a", fontWeight: "700", fontSize: 16 },
   primaryBtn: { backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 11, alignItems: "center" },
+  optionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   input: {
     borderWidth: 1,
     borderColor: "#cbd5e1",

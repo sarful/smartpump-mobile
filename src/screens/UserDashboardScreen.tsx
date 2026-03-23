@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { AppFooter } from "../components/AppFooter";
+import { ChangePasswordCard } from "../components/ChangePasswordCard";
+import { useAdaptivePolling } from "../hooks/useAdaptivePolling";
+import { ScreenStateNotice } from "../components/ScreenStateNotice";
 
 type DashboardResponse = {
   username: string;
@@ -35,29 +38,32 @@ export function UserDashboardScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
-  const loadDashboard = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const loadDashboard = useCallback(async (mode: "initial" | "manual" | "silent" = "initial") => {
+    if (mode === "manual") setRefreshing(true);
+    else if (mode === "initial") setLoading(true);
+    if (mode !== "silent") setError(null);
     try {
       const res = await authorizedRequest<DashboardResponse>("/api/mobile/user/dashboard");
       setData(res);
+      return true;
     } catch (err: any) {
-      setError(err?.message || "Failed to load dashboard");
+      if (mode !== "silent") {
+        setError(err?.message || "Failed to load dashboard");
+      }
+      return false;
     } finally {
-      if (isRefresh) setRefreshing(false);
-      else setLoading(false);
+      if (mode === "manual") setRefreshing(false);
+      else if (mode === "initial") setLoading(false);
     }
   }, [authorizedRequest]);
 
-  useEffect(() => {
-    loadDashboard(false);
-    const id = setInterval(() => {
-      loadDashboard(true);
-    }, 5000);
-    return () => clearInterval(id);
-  }, [loadDashboard]);
+  useAdaptivePolling({
+    baseIntervalMs: 5000,
+    errorIntervalMs: 10000,
+    onPoll: () => loadDashboard(data ? "silent" : "initial"),
+  });
 
   useEffect(() => {
     if (!message) return;
@@ -96,7 +102,7 @@ export function UserDashboardScreen() {
     setMessage(null);
     try {
       await fn();
-      await loadDashboard(true);
+      await loadDashboard("silent");
     } catch (err: any) {
       setError(err?.message || "Action failed");
     } finally {
@@ -107,8 +113,32 @@ export function UserDashboardScreen() {
   if (loading && !data) {
     return (
       <View style={[styles.center, styles.page]}>
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+        <View style={styles.initialState}>
+          <ScreenStateNotice
+            title="Loading dashboard"
+            message="We are syncing your wallet, motor, and queue state."
+            variant="info"
+          />
+        </View>
       </View>
+    );
+  }
+
+  if (!loading && !data) {
+    return (
+      <SafeAreaView style={styles.page}>
+        <View style={[styles.center, styles.page]}>
+          <View style={styles.initialState}>
+            <ScreenStateNotice
+              title="Dashboard unavailable"
+              message={error || "We could not load your latest dashboard data."}
+              variant="error"
+              actionLabel="Retry"
+              onAction={() => loadDashboard("initial")}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -117,7 +147,7 @@ export function UserDashboardScreen() {
       <ScrollView
         style={styles.page}
         contentContainerStyle={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard(true)} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadDashboard("manual")} />}
       >
       <View style={styles.headerRow}>
         <View>
@@ -128,8 +158,16 @@ export function UserDashboardScreen() {
         </View>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      {message ? <Text style={styles.successText}>{message}</Text> : null}
+      {error ? (
+        <ScreenStateNotice
+          title="Action failed"
+          message={error}
+          variant="error"
+          actionLabel="Retry"
+          onAction={() => loadDashboard("manual")}
+        />
+      ) : null}
+      {message ? <ScreenStateNotice message={message} variant="success" /> : null}
 
       {cardModeActive ? (
         <View style={styles.cardModeBanner}>
@@ -293,7 +331,21 @@ export function UserDashboardScreen() {
           <Text style={styles.logoutTextBottom}>Logout</Text>
         </Pressable>
       </View>
-      <AppFooter />
+      {showChangePassword ? (
+        <ChangePasswordCard
+          onSubmit={async (currentPassword, newPassword) => {
+            await authorizedRequest("/api/mobile/auth/change-password", {
+              method: "POST",
+              body: JSON.stringify({ currentPassword, newPassword }),
+            });
+            await logout();
+          }}
+        />
+      ) : null}
+      <AppFooter
+        actionLabel={showChangePassword ? "Hide Change Password" : "Change Password"}
+        onActionPress={() => setShowChangePassword((value) => !value)}
+      />
       </ScrollView>
     </SafeAreaView>
   );
@@ -315,6 +367,7 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#f8fafc" },
   center: { justifyContent: "center", alignItems: "center" },
   container: { padding: 16, gap: 12 },
+  initialState: { width: "100%", maxWidth: 420, paddingHorizontal: 16 },
   loadingText: { color: "#334155", fontSize: 15 },
   headerRow: { marginTop: 8, alignItems: "center", gap: 8 },
   brand: { color: "#2563eb", fontSize: 12, fontWeight: "700", letterSpacing: 2, textAlign: "center" },

@@ -8,10 +8,15 @@ This app uses the same backend/database architecture:
 
 ## Backend requirements (`smartpump-pro`)
 
-Set these env variables:
+Set these backend env variables:
 
 - `MONGODB_URI`
-- `MOBILE_JWT_SECRET` (recommended; fallback is `NEXTAUTH_SECRET`)
+- `MOBILE_JWT_SECRET` (required, 32+ chars)
+- `NEXTAUTH_SECRET` (required, 32+ chars)
+- `ESP32_DEVICE_SECRET`
+- `CRON_SECRET`
+- `NEXTAUTH_URL`
+- `APP_BASE_URL`
 - `MOBILE_MAX_SESSIONS` (optional, default `5`)
 
 New mobile auth endpoints:
@@ -72,6 +77,8 @@ Set `.env`:
 EXPO_PUBLIC_API_BASE_URL=https://your-backend-domain.com
 ```
 
+The app now fails fast if `EXPO_PUBLIC_API_BASE_URL` is missing.
+
 ## Build Android release
 
 ```bash
@@ -86,7 +93,7 @@ npm run build:aab   # Play Store AAB
 - Environment-driven API base URL (`EXPO_PUBLIC_API_BASE_URL`)
 - API health check button on login screen (`/api/mobile/health`)
 - Request timeout handling for network calls
-- EAS build profiles for APK/AAB
+- EAS build profiles for APK/AAB without hardcoded backend domains
 - `logout-all` support from Admin/Master screens
 
 ## Phase-6 operational checks
@@ -102,6 +109,14 @@ Checks:
 - `/api/mobile/health` -> `200`
 - `/api/mobile/ready` -> `200`
 - `/api/mobile/auth/me` -> `401` (expected without token)
+
+Before a production release, run:
+
+```bash
+npm run release:validate
+```
+
+Cross-platform release notes live in `../RELEASE_VALIDATION.md`.
 
 ## Codecanyon packaging
 
