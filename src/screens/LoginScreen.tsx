@@ -481,22 +481,6 @@ export function LoginScreen({ route, navigate }: LoginScreenProps) {
                   />
                 </View>
 
-                <View style={styles.helpCard}>
-                  <Text style={styles.helpTitle}>Help Center</Text>
-                  <Text style={styles.helpSubTitle}>
-                    Beginner Guide and Documentation
-                  </Text>
-                  <View style={styles.helpActions}>
-                    <ActionButton
-                      label="Beginner Guide"
-                      onPress={() => navigateAndReset("guide")}
-                    />
-                    <ActionButton
-                      label="Documentation"
-                      onPress={() => navigateAndReset("documentation")}
-                    />
-                  </View>
-                </View>
               </View>
             ) : route === "guide" ? (
               <View style={styles.docWrap}>
@@ -659,7 +643,22 @@ export function LoginScreen({ route, navigate }: LoginScreenProps) {
             </Text>
           </Pressable>
         </View>
-        <AppFooter />
+        <AppFooter
+          actions={
+            route === "home"
+              ? [
+                  {
+                    label: "Beginner Guide",
+                    onPress: () => navigateAndReset("guide"),
+                  },
+                  {
+                    label: "Documentation",
+                    onPress: () => navigateAndReset("documentation"),
+                  },
+                ]
+              : undefined
+          }
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -715,27 +714,6 @@ const styles = StyleSheet.create({
   },
   homeWrap: { gap: 12, marginTop: 2 },
   menuWrap: { gap: 10 },
-  helpCard: {
-    borderWidth: 2,
-    borderColor: "#93c5fd",
-    borderRadius: 12,
-    backgroundColor: "#eff6ff",
-    padding: 10,
-    gap: 8,
-    shadowColor: "#93c5fd",
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  helpTitle: {
-    color: "#1d4ed8",
-    fontWeight: "700",
-    fontSize: 13,
-    textAlign: "center",
-  },
-  helpSubTitle: { color: "#1e3a8a", fontSize: 12, textAlign: "center" },
-  helpActions: { gap: 8 },
   contentArea: { width: "100%", maxWidth: 620, alignSelf: "center" },
   linkBtn: {
     borderWidth: 1,
